@@ -4,8 +4,8 @@ import { state, save, log, kill, resetForMode } from './state.js';
 import { short } from './agents/scout.js';
 import { runFilter, REASONS as FILTER_REASONS } from './agents/filter.js';
 import { runAnalyst, REASONS as ANALYST_REASONS } from './agents/analyst.js';
-import { makePlan, exitReason, valuePosition } from './agents/guard.js';
-import { sizeTrade, buy, sell, cashSol, isPaper } from './agents/sniper.js';
+import { makePlan, exitReason, valuePosition, wantsPartial } from './agents/guard.js';
+import { sizeTrade, buy, sell, sellPart, cashSol, isPaper } from './agents/sniper.js';
 import { solPriceUsd } from './jupiter.js';
 import { sleep } from './http.js';
 
@@ -17,6 +17,24 @@ export const reasonLabel = (key) => {
   return table[r] ? table[r]() : r;
 };
 
+// Historial de tus copias por smart wallet. Una wallet con 3+ copias, pérdidas y poco acierto queda vetada.
+export function walletRecord(wallet) {
+  const r = { trades: 0, wins: 0, pnlUsd: 0 };
+  for (const t of state.closed) {
+    if (!t.sources?.some((s) => s.wallet === wallet)) continue;
+    r.trades++;
+    if (t.pnlUsd > 0) r.wins++;
+    r.pnlUsd += t.pnlUsd / t.sources.length;
+  }
+  return r;
+}
+
+export function isVetoed(wallet) {
+  if (!cfg.walletVeto) return false;
+  const r = walletRecord(wallet);
+  return r.trades >= 3 && r.pnlUsd < 0 && r.wins / r.trades < 0.34;
+}
+
 function investedSol() {
   return state.positions.reduce((s, p) => s + p.costSol, 0);
 }
@@ -27,6 +45,9 @@ export async function handleSignal(mint, buys) {
   try {
     if (state.paused) return skip(mint, `en pausa (${state.pauseReason || 'manual'})`);
     if (state.positions.length >= cfg.maxOpenPositions) return skip(mint, 'máximo de posiciones abiertas');
+    const good = buys.filter((b) => !isVetoed(b.wallet));
+    if (!good.length) return skip(mint, `wallet vetada por mal historial (${buys.map((b) => short(b.wallet)).join(', ')})`);
+    buys = good;
 
     // FILTER
     const f = await runFilter(mint);
@@ -52,7 +73,7 @@ export async function handleSignal(mint, buys) {
     // GUARD — el plan de salida existe antes de que se gaste un solo SOL
     const plan = makePlan();
     state.counters.guardSet++;
-    log('guard', `${f.ctx.symbol}: stop −${plan.stopLossPct}%, TP +${plan.takeProfitPct}%, trailing ${plan.trailPct}% tras +${plan.trailActivatePct}%`);
+    log('guard', `${f.ctx.symbol}: stop −${plan.stopLossPct}%, vende ${Math.round(plan.partialTpFraction * 100)}% en +${plan.partialTpPct}%, TP +${plan.takeProfitPct}%, trailing ${plan.trailPct}% tras +${plan.trailActivatePct}%`);
 
     // SNIPER
     const r = await buy(mint, amountSol, a.quote);
@@ -68,7 +89,7 @@ export async function handleSignal(mint, buys) {
       rentSol: r.rentSol,
       solUsdAtOpen: solUsd,
       buySig: r.sig,
-      sources: buys.map((b) => ({ wallet: b.wallet, sol: b.sol, sig: b.sig, t: b.t })),
+      sources: buys.map((b) => ({ wallet: b.wallet, sol: b.sol, tokens: b.tokens, soldTokens: 0, sig: b.sig, t: b.t })),
       valueSol: r.costSol,
       pnlPct: 0,
       peakPnlPct: 0,
@@ -91,13 +112,22 @@ function skip(mint, why) {
 }
 
 // Si una de las wallets que copiamos vende, Guard ordena salir.
+// Si una de las wallets copiadas vende al menos FOLLOW_SELL_MIN_PCT de lo que compró, Guard ordena salir.
+// Las ventas pequeñas (tomar algo de ganancia) no hacen salir.
 export function onWalletSell(s) {
   if (!cfg.followWalletSells) return;
   for (const p of state.positions) {
-    if (p.mint === s.mint && p.sources.some((src) => src.wallet === s.wallet) && !p.forceExit) {
-      p.forceExit = `la wallet ${short(s.wallet)} vendió`;
+    const src = p.sources.find((x) => x.wallet === s.wallet);
+    if (p.mint !== s.mint || !src || p.forceExit) continue;
+    src.soldTokens = (src.soldTokens || 0) + s.tokens;
+    const soldPct = src.tokens ? (src.soldTokens / src.tokens) * 100 : 100;
+    if (soldPct >= cfg.followSellMinPct) {
+      p.forceExit = `la wallet ${short(s.wallet)} vendió ${Math.min(100, Math.round(soldPct))}%`;
       log('guard', `${p.symbol}: ${p.forceExit} → salir`);
+    } else {
+      log('guard', `${p.symbol}: la wallet ${short(s.wallet)} vendió solo ${Math.round(soldPct)}% → se mantiene`);
     }
+    save();
   }
 }
 
@@ -109,16 +139,17 @@ export function forceSell(id, why = 'venta manual') {
 async function closePosition(pos, reason) {
   const r = await sell(pos, pos.sellFails);
   const solUsd = await solPriceUsd().catch(() => pos.solUsdAtOpen);
-  const pnlSol = r.proceedsSol - pos.costSol;
+  const proceedsSol = r.proceedsSol + (pos.realizedSol || 0); // incluye lo cobrado en la venta parcial
+  const pnlSol = proceedsSol - pos.costSol;
   const trade = {
     ...pos,
     closedAt: Date.now(),
     exitReason: reason,
     sellSig: r.sig,
-    proceedsSol: r.proceedsSol,
+    proceedsSol,
     pnlSol,
     pnlUsd: pnlSol * solUsd,
-    pnlPct: (r.proceedsSol / pos.costSol - 1) * 100,
+    pnlPct: (proceedsSol / pos.costSol - 1) * 100,
   };
   state.positions = state.positions.filter((p) => p.id !== pos.id);
   state.closed.unshift(trade);
@@ -138,6 +169,15 @@ export async function guardLoop() {
         pos.pnlPct = v.pnlPct;
         pos.peakPnlPct = Math.max(pos.peakPnlPct, v.pnlPct);
         pos.quoteFails = 0;
+        if (wantsPartial(pos, v.pnlPct)) {
+          const r = await sellPart(pos, pos.plan.partialTpFraction);
+          pos.realizedSol = (pos.realizedSol || 0) + r.proceedsSol;
+          pos.tokensRaw = r.tokensLeft;
+          pos.partialTaken = true;
+          save();
+          log('sniper', `${pos.paper ? '[SIM] ' : ''}${pos.symbol}: vendió ${Math.round(pos.plan.partialTpFraction * 100)}% en +${v.pnlPct.toFixed(0)}% (asegura ${r.proceedsSol.toFixed(3)} SOL) · el resto tiene stop de seguridad`);
+          continue;
+        }
         const why = exitReason(pos, v.pnlPct);
         if (why) {
           pos.forceExit = why; // si la venta falla, se reintenta en la siguiente vuelta

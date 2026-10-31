@@ -91,3 +91,29 @@ export function sell(pos, attempt = 0) {
     return { sig, proceedsSol: Number(after - before) / 1e9 };
   });
 }
+
+// Vende una parte de la posición (venta parcial para asegurar ganancia).
+export function sellPart(pos, fraction) {
+  return exclusive(async () => {
+    if (pos.paper) {
+      const part = (BigInt(pos.tokensRaw) * BigInt(Math.round(fraction * 1000))) / 1000n;
+      const q = await quote(pos.mint, SOL_MINT, part);
+      const proceedsSol = Number(q.outAmount) / 1e9 - PAPER_FEE_SOL;
+      state.paperCashSol += proceedsSol;
+      save();
+      return { sig: 'simulado', proceedsSol, tokensLeft: (BigInt(pos.tokensRaw) - part).toString() };
+    }
+
+    const before = await getSolBalance();
+    const bal = await getTokenBalance(keypair.publicKey, pos.mint);
+    const part = (bal.raw * BigInt(Math.round(fraction * 1000))) / 1000n;
+    if (part === 0n) throw new Error('no hay tokens para vender');
+    const q = await quote(pos.mint, SOL_MINT, part);
+    const tx = await buildSwap(q, keypair.publicKey);
+    tx.sign([keypair]);
+    const sig = await sendAndConfirm(tx);
+    const after = await getSolBalance();
+    const left = await getTokenBalance(keypair.publicKey, pos.mint);
+    return { sig, proceedsSol: Number(after - before) / 1e9, tokensLeft: left.raw.toString() };
+  });
+}

@@ -48,6 +48,12 @@ export const cfg = {
   trailPct: num('TRAIL_PCT', 20),
   maxHoldMs: num('MAX_HOLD_MIN', 120) * 60_000,
   followWalletSells: bool('FOLLOW_WALLET_SELLS', true),
+  followSellMinPct: num('FOLLOW_SELL_MIN_PCT', 50),
+  partialTpPct: num('PARTIAL_TP_PCT', 25),
+  partialTpFraction: num('PARTIAL_TP_FRACTION', 0.5),
+  momentumFilter: bool('MOMENTUM_FILTER', true),
+  walletVeto: bool('WALLET_VETO', true),
+  quality: 'normal',
 
   hunter: bool('HUNTER', true),
   hunterMaxWallets: num('HUNTER_MAX_WALLETS', 500),
@@ -95,7 +101,7 @@ export function checkConfig() {
 const SETTINGS_FILE = 'data/settings.json';
 // Combinaciones de posiciones que se eligen desde el panel: nº de posiciones → $ máximo por operación.
 export const POSITION_PRESETS = { 3: 15, 5: 10 };
-const EDITABLE = { confirmWallets: [1, 2, 3], maxOpenPositions: [3, 5], maxTradeUsd: [10, 15] };
+const EDITABLE = { confirmWallets: [1, 2, 3], maxOpenPositions: [3, 5], maxTradeUsd: [10, 15], quality: ['normal', 'strict'] };
 try {
   const saved = JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf8'));
   for (const [k, v] of Object.entries(saved)) {
@@ -114,4 +120,13 @@ export function saveSetting(key, value) {
   } catch {}
   all[key] = value;
   fs.writeFileSync(SETTINGS_FILE, JSON.stringify(all));
+}
+
+// Umbrales efectivos del Filter según el modo de calidad elegido en el panel.
+export function filterLimits() {
+  const strict = cfg.quality === 'strict';
+  return {
+    minLiquidityUsd: strict ? Math.max(cfg.minLiquidityUsd, 50_000) : cfg.minLiquidityUsd,
+    maxTop10Pct: strict ? Math.min(cfg.maxTop10Pct, 30) : cfg.maxTop10Pct,
+  };
 }

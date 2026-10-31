@@ -115,6 +115,10 @@
       <span class="muted" style="flex:1">Posiciones abiertas a la vez:</span>
       <button class="pick wide" data-positions="3">3 × $15</button><button class="pick wide" data-positions="5">5 × $10</button>
     </div>
+    <div class="row" style="margin-top:10px;gap:6px">
+      <span class="muted" style="flex:1">Calidad de los tokens:</span>
+      <button class="pick wide" data-quality="normal">Normal</button><button class="pick wide" data-quality="strict">Estricta</button>
+    </div>
   </section>
 
   <section class="card">
@@ -243,7 +247,7 @@ function render(s) {
   $('openCount').textContent = s.positions.length ? s.positions.length + ' abiertas' : '';
   $('positions').innerHTML = s.positions.length ? s.positions.map((p) => `
     <div class="trade">
-      <div><span class="sym">${esc(p.symbol)}</span>${p.paper ? ' <span class="muted">SIM</span>' : ''}<br><span class="muted">${(p.costSol).toFixed(3)} SOL · ${ago(p.openedAt)}</span></div>
+      <div><span class="sym">${esc(p.symbol)}</span>${p.paper ? ' <span class="muted">SIM</span>' : ''}<br><span class="muted">${(p.costSol).toFixed(3)} SOL · ${ago(p.openedAt)}${p.partialTaken ? ' · <b class="pos">mitad vendida</b>' : ''}</span></div>
       <div class="${p.pnlPct >= 0 ? 'pos' : 'neg'}" style="font-weight:800">${p.pnlPct >= 0 ? '+' : ''}${p.pnlPct.toFixed(1)}%</div>
       <div class="r">${p.forceExit ? `<span class="muted">vendiendo…</span>` : `<button class="small danger" data-sell="${esc(p.id)}">Vender</button>`}</div>
     </div>`).join('') : '<div class="empty">Ninguna. Sniper espera un 5/5.</div>';
@@ -260,9 +264,10 @@ function render(s) {
     </div>`;
   }).join('') : '<div class="empty">Aún no hay operaciones cerradas.</div>';
 
-  $('ranking').innerHTML = s.walletRanking?.length ? s.walletRanking.map((r) => `<div class="trade"><div><a href="https://solscan.io/account/${esc(r.wallet)}" target="_blank">${short(r.wallet)}</a><br><span class="muted">${r.trades} copias · ${r.wins} verdes</span></div><div></div><div class="r"><b class="${r.pnlUsd >= 0 ? 'pos' : 'neg'}">${usd(r.pnlUsd, true)}</b></div></div>`).join('')
+  $('ranking').innerHTML = s.walletRanking?.length ? s.walletRanking.map((r) => `<div class="trade"><div><a href="https://solscan.io/account/${esc(r.wallet)}" target="_blank">${short(r.wallet)}</a><br><span class="muted">${r.trades} copias · ${r.wins} verdes${r.vetoed ? ' · <b class="neg">vetada</b>' : ''}</span></div><div></div><div class="r"><b class="${r.pnlUsd >= 0 ? 'pos' : 'neg'}">${usd(r.pnlUsd, true)}</b></div></div>`).join('')
     : '<div class="empty">Aparecerá cuando se cierren las primeras copias.</div>';
   document.querySelectorAll('[data-confirm]').forEach((b) => b.classList.toggle('on', Number(b.dataset.confirm) === s.confirmWallets));
+  document.querySelectorAll('[data-quality]').forEach((b) => b.classList.toggle('on', b.dataset.quality === s.quality));
   document.querySelectorAll('[data-positions]').forEach((b) => b.classList.toggle('on', Number(b.dataset.positions) === s.maxOpenPositions));
   const h = s.hunter;
   if (h) {
@@ -311,6 +316,8 @@ $('btnMode').onclick = () => {
 document.addEventListener('click', (e) => {
   const n = e.target.dataset?.confirm;
   if (n) return api('/api/confirm', { n: Number(n) });
+  const nq = e.target.dataset?.quality;
+  if (nq) return api('/api/quality', { q: nq });
   const np = e.target.dataset?.positions;
   if (np) return api('/api/positions', { n: Number(np) });
   const id = e.target.dataset?.sell;

@@ -1,14 +1,15 @@
 // FILTER — mata la señal si se rompe una sola regla dura.
-import { cfg } from '../config.js';
+import { cfg, filterLimits } from '../config.js';
 import { fetchJson } from '../http.js';
 import { PublicKey } from '@solana/web3.js';
 import { getMintInfo, connection } from '../solana.js';
 
 export const REASONS = {
-  liquidity: () => `pool bajo $${(cfg.minLiquidityUsd / 1000).toFixed(0)}k`,
+  liquidity: () => `pool bajo $${(filterLimits().minLiquidityUsd / 1000).toFixed(0)}k`,
+  momentum: () => 'sin impulso (no sube o más ventas que compras)',
   mint: () => 'mint no revocado',
   freeze: () => 'freeze no revocado',
-  top10: () => `top 10 tenedores > ${cfg.maxTop10Pct}%`,
+  top10: () => `top 10 tenedores > ${filterLimits().maxTop10Pct}%`,
   dev: () => `wallet del dev > ${cfg.maxDevPct}%`,
   lp: () => 'LP no quemado',
   nodata: () => 'sin datos (fallo de API)',
@@ -34,6 +35,9 @@ export async function dexInfo(mint) {
     symbol: best?.baseToken?.address === mint ? best.baseToken.symbol : best?.quoteToken?.symbol || '?',
     priceUsd: Number(best?.priceUsd || 0),
     dexId: best?.dexId || '?',
+    change1h: best?.priceChange?.h1 === undefined ? null : Number(best.priceChange.h1),
+    buys5m: Number(best?.txns?.m5?.buys || 0),
+    sells5m: Number(best?.txns?.m5?.sells || 0),
   };
 }
 
@@ -122,7 +126,11 @@ export async function runFilter(mint) {
   const ctx = { symbol: dex.symbol, liquidityUsd: dex.liquidityUsd, decimals: mintInfo.decimals, dexId: dex.dexId };
 
   // Reglas baratas primero.
-  if (dex.liquidityUsd < cfg.minLiquidityUsd) return { ok: false, reason: 'liquidity', ctx, detail: `$${Math.round(dex.liquidityUsd)}` };
+  const lim = filterLimits();
+  if (dex.liquidityUsd < lim.minLiquidityUsd) return { ok: false, reason: 'liquidity', ctx, detail: `$${Math.round(dex.liquidityUsd)}` };
+  if (cfg.momentumFilter && ((dex.change1h !== null && dex.change1h <= 0) || dex.buys5m < dex.sells5m)) {
+    return { ok: false, reason: 'momentum', ctx, detail: `1h ${dex.change1h ?? '?'}% · 5 min ${dex.buys5m} compras / ${dex.sells5m} ventas` };
+  }
   if (mintInfo.mintAuthority) return { ok: false, reason: 'mint', ctx };
   if (mintInfo.freezeAuthority) return { ok: false, reason: 'freeze', ctx };
 
@@ -142,7 +150,7 @@ export async function runFilter(mint) {
   }
   Object.assign(ctx, h);
 
-  if (h.top10 > cfg.maxTop10Pct) return { ok: false, reason: 'top10', ctx, detail: `${h.top10.toFixed(1)}%` };
+  if (h.top10 > lim.maxTop10Pct) return { ok: false, reason: 'top10', ctx, detail: `${h.top10.toFixed(1)}%` };
   if (h.devPct !== null && h.devPct > cfg.maxDevPct) return { ok: false, reason: 'dev', ctx, detail: `${h.devPct.toFixed(1)}%` };
   if (h.lpPct < cfg.minLpBurnedPct) return { ok: false, reason: 'lp', ctx, detail: h.lpUnknown ? 'sin RugCheck no se puede comprobar' : `${h.lpPct.toFixed(0)}% quemado` };
   return { ok: true, ctx };

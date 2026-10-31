@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import crypto from 'node:crypto';
 import { cfg, saveSetting, POSITION_PRESETS } from './config.js';
 import { state, log } from './state.js';
-import { reasonLabel, forceSell, switchMode } from './crew.js';
+import { reasonLabel, forceSell, switchMode, isVetoed } from './crew.js';
 import { keypair, withdrawAll, getSolBalance } from './solana.js';
 import { parseWallets, saveWallets, trackedWallets, currentNotes } from './wallets.js';
 import { hunterSummary } from './hunter-loop.js';
@@ -69,7 +69,9 @@ function walletRanking(closed) {
       r.pnlUsd += t.pnlUsd / t.sources.length;
     }
   }
-  return Object.values(by).sort((a, b) => b.pnlUsd - a.pnlUsd);
+  return Object.values(by)
+    .map((r) => ({ ...r, vetoed: isVetoed(r.wallet) }))
+    .sort((a, b) => b.pnlUsd - a.pnlUsd);
 }
 
 function publicState() {
@@ -102,6 +104,7 @@ function publicState() {
     confirmWallets: cfg.confirmWallets,
     maxOpenPositions: cfg.maxOpenPositions,
     maxTradeUsd: cfg.maxTradeUsd,
+    quality: cfg.quality,
     rugcheckError: lastRugcheckError,
     jupiter: jupStats,
     positions: state.positions,
@@ -186,6 +189,12 @@ export function startServer({ onWebhook }) {
             const n = Number(body.n);
             saveSetting('confirmWallets', n);
             log('scout', `confirmación cambiada: ${n === 1 ? 'basta 1 smart wallet' : `${n} smart wallets deben comprar el mismo token`}`);
+            break;
+          }
+          case '/api/quality': {
+            const q = body.q === 'strict' ? 'strict' : 'normal';
+            saveSetting('quality', q);
+            log('filter', q === 'strict' ? 'calidad ESTRICTA: pool mínimo $50k y top 10 ≤ 30%' : 'calidad normal');
             break;
           }
           case '/api/positions': {

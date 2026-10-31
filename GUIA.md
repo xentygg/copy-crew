@@ -99,6 +99,14 @@ En el panel verás **"Wallet del bot"** con su dirección. Envía ahí el SOL de
 
 Las smart wallets se cambian cuando quieras desde el propio panel (apartado **Smart wallets → Guardar wallets**).
 
+## Cómo decide el bot (resumen)
+
+- **Filter** además exige **impulso**: que el token suba en la última hora y que en los últimos 5 minutos haya más compras que ventas.
+- **Calidad Estricta** (selector del panel): pool mínimo de $50k y top 10 ≤ 30 %. Menos señales, tokens más sólidos.
+- **Guard** vende la **mitad en +25 %** y, desde ese momento, la operación completa no puede acabar en pérdidas (stop de seguridad en +3 %).
+- Solo sale detrás de una smart wallet si esta vende **al menos la mitad** de lo que compró.
+- Una wallet con **3 o más copias en pérdidas** y poco acierto queda **vetada** (aparece así en "Tus resultados por wallet").
+
 ## Hunter: búsqueda automática de smart wallets
 
 Cada 15 minutos, el Hunter revisa los tokens en tendencia de Solana (datos gratuitos de GeckoTerminal) y estudia quién compra y vende en ellos. Una wallet se añade sola a la lista cuando, en lo observado:
