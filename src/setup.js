@@ -46,7 +46,8 @@ ${needWallets ? '<label>Smart wallets a copiar<textarea name="wallets" required 
 function writeEnv(values) {
   let text = fs.existsSync('.env') ? fs.readFileSync('.env', 'utf8') : fs.readFileSync('.env.example', 'utf8');
   for (const [k, v] of Object.entries(values)) {
-    const line = `${k}=${v}`;
+    // Entre comillas para que caracteres como # o espacios no corten el valor.
+    const line = `${k}=${v.includes('"') ? `'${v}'` : `"${v}"`}`;
     const re = new RegExp(`^${k}=.*$`, 'm');
     text = re.test(text) ? text.replace(re, () => line) : `${text}\n${line}\n`;
   }
