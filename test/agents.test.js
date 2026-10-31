@@ -64,3 +64,26 @@ test('sniper respeta límites de tamaño', () => {
   // sin saldo
   assert.equal(sizeTrade([{ sol: 16 }], solUsd, { cash: 0.04, investedSol: 0 }), 0);
 });
+
+test('filter sin RugCheck: calcula top 10 desde la blockchain ignorando pools', async () => {
+  const { Keypair, PublicKey } = await import('@solana/web3.js');
+  const { connection } = await import('../src/solana.js');
+  const { chainHolderStats } = await import('../src/agents/filter.js');
+  const wallet1 = Keypair.generate().publicKey.toBase58();
+  const wallet2 = Keypair.generate().publicKey.toBase58();
+  const [pda] = PublicKey.findProgramAddressSync([Buffer.from('pool')], new PublicKey('11111111111111111111111111111111'));
+  connection.getTokenLargestAccounts = async () => ({ value: [
+    { address: new PublicKey(pda), uiAmount: 600_000 },          // vault del pool (dueño PDA)
+    { address: Keypair.generate().publicKey, uiAmount: 100_000 }, // wallet1
+    { address: Keypair.generate().publicKey, uiAmount: 50_000 },  // wallet1 otra cuenta
+    { address: Keypair.generate().publicKey, uiAmount: 30_000 },  // wallet2
+  ] });
+  const owners = [pda.toBase58(), wallet1, wallet1, wallet2];
+  connection.getMultipleParsedAccounts = async () => ({ value: owners.map((o) => ({ data: { parsed: { info: { owner: o } } } })) });
+  const mintInfo = { supply: 1_000_000_000_000n, decimals: 6 }; // 1M tokens
+  const h = await chainHolderStats('So11111111111111111111111111111111111111112', mintInfo, 'pumpswap');
+  assert.equal(Math.round(h.top10), 18); // (150k + 30k) / 1M, sin contar el pool
+  assert.equal(h.lpPct, 100); assert.equal(h.devPct, null);
+  const h2 = await chainHolderStats('So11111111111111111111111111111111111111112', mintInfo, 'raydium');
+  assert.equal(h2.lpUnknown, true);
+});

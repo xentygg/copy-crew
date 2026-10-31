@@ -1,7 +1,8 @@
 // FILTER — mata la señal si se rompe una sola regla dura.
 import { cfg } from '../config.js';
 import { fetchJson } from '../http.js';
-import { getMintInfo } from '../solana.js';
+import { PublicKey } from '@solana/web3.js';
+import { getMintInfo, connection } from '../solana.js';
 
 export const REASONS = {
   liquidity: () => `pool bajo $${(cfg.minLiquidityUsd / 1000).toFixed(0)}k`,
@@ -74,12 +75,46 @@ export function holderStats(report, supply, decimals) {
   return { top10, devPct, lpPct };
 }
 
+export let lastRugcheckError = null;
+
+// Pools cuyo LP se quema siempre por diseño (pump.fun migra a PumpSwap quemando la liquidez).
+const LP_BURNED_BY_DESIGN = new Set(['pumpswap']);
+
+// Alternativa a RugCheck usando solo la blockchain. Los pools y bonding curves son cuentas
+// de programa (fuera de la curva ed25519), así que solo cuentan los dueños que son wallets normales.
+export async function chainHolderStats(mint, mintInfo, dexId) {
+  const largest = await connection.getTokenLargestAccounts(new PublicKey(mint), 'confirmed');
+  const accounts = largest.value.slice(0, 20);
+  const infos = await connection.getMultipleParsedAccounts(accounts.map((a) => a.address), { commitment: 'confirmed' });
+  const supplyUi = Number(mintInfo.supply) / 10 ** mintInfo.decimals;
+  const byOwner = new Map();
+  accounts.forEach((a, i) => {
+    const owner = infos.value[i]?.data?.parsed?.info?.owner;
+    if (!owner || !PublicKey.isOnCurve(new PublicKey(owner).toBytes())) return;
+    byOwner.set(owner, (byOwner.get(owner) || 0) + Number(a.uiAmount || 0));
+  });
+  const top = [...byOwner.values()].sort((x, y) => y - x).slice(0, 10);
+  const burned = LP_BURNED_BY_DESIGN.has(dexId);
+  return {
+    top10: supplyUi ? (top.reduce((s, x) => s + x, 0) / supplyUi) * 100 : 100,
+    devPct: null, // sin RugCheck no sabemos quién es el creador
+    lpPct: burned ? 100 : 0,
+    lpUnknown: !burned,
+    source: 'blockchain',
+  };
+}
+
 export async function runFilter(mint) {
   let dex, mintInfo, report;
   try {
-    [dex, mintInfo] = await Promise.all([dexInfo(mint), getMintInfo(mint)]);
+    dex = await dexInfo(mint);
   } catch (e) {
-    return { ok: false, reason: 'nodata', detail: e.message };
+    return { ok: false, reason: 'nodata', detail: `dexscreener: ${e.message}` };
+  }
+  try {
+    mintInfo = await getMintInfo(mint);
+  } catch (e) {
+    return { ok: false, reason: 'nodata', detail: `solana: ${e.message}` };
   }
   const ctx = { symbol: dex.symbol, liquidityUsd: dex.liquidityUsd, decimals: mintInfo.decimals, dexId: dex.dexId };
 
@@ -88,16 +123,24 @@ export async function runFilter(mint) {
   if (mintInfo.mintAuthority) return { ok: false, reason: 'mint', ctx };
   if (mintInfo.freezeAuthority) return { ok: false, reason: 'freeze', ctx };
 
+  let h;
   try {
     report = await fetchJson(`https://api.rugcheck.xyz/v1/tokens/${mint}/report`, { timeoutMs: 15_000 });
+    h = holderStats(report, mintInfo.supply, mintInfo.decimals);
+    lastRugcheckError = null;
   } catch (e) {
-    return { ok: false, reason: 'nodata', ctx, detail: `rugcheck: ${e.message}` };
+    // RugCheck caído o bloqueado: calcular lo esencial directamente desde la blockchain.
+    lastRugcheckError = e.message;
+    try {
+      h = await chainHolderStats(mint, mintInfo, dex.dexId);
+    } catch (e2) {
+      return { ok: false, reason: 'nodata', ctx, detail: `rugcheck: ${e.message} · blockchain: ${e2.message}` };
+    }
   }
-  const h = holderStats(report, mintInfo.supply, mintInfo.decimals);
   Object.assign(ctx, h);
 
   if (h.top10 > cfg.maxTop10Pct) return { ok: false, reason: 'top10', ctx, detail: `${h.top10.toFixed(1)}%` };
-  if (h.devPct > cfg.maxDevPct) return { ok: false, reason: 'dev', ctx, detail: `${h.devPct.toFixed(1)}%` };
-  if (h.lpPct < cfg.minLpBurnedPct) return { ok: false, reason: 'lp', ctx, detail: `${h.lpPct.toFixed(0)}% quemado` };
+  if (h.devPct !== null && h.devPct > cfg.maxDevPct) return { ok: false, reason: 'dev', ctx, detail: `${h.devPct.toFixed(1)}%` };
+  if (h.lpPct < cfg.minLpBurnedPct) return { ok: false, reason: 'lp', ctx, detail: h.lpUnknown ? 'sin RugCheck no se puede comprobar' : `${h.lpPct.toFixed(0)}% quemado` };
   return { ok: true, ctx };
 }

@@ -4,7 +4,7 @@ import { keypair } from './solana.js';
 import { ingest, setTrackedWallets } from './agents/scout.js';
 import { hunterLoop } from './hunter-loop.js';
 import { handleSignal, onWalletSell, guardLoop, equityLoop, initMode } from './crew.js';
-import { ensureWebhook } from './helius.js';
+import { ensureWebhook, webhookTypes } from './helius.js';
 import { startServer } from './server.js';
 
 const wallets = loadWallets().filter((w) => w !== keypair.publicKey.toBase58());
@@ -20,7 +20,7 @@ startServer({
 
 await initMode();
 const id = await ensureWebhook(wallets);
-log('scout', `vigilando ${wallets.length} smart wallets (webhook ${id})`);
+log('scout', `vigilando ${wallets.length} smart wallets (webhook ${id}, solo ${webhookTypes.join('/')})`);
 log('crew', `modo ${state.mode === 'live' ? 'REAL' : 'observación'} · wallet del bot ${keypair.publicKey.toBase58()} · límite $${cfg.spendCapUsd}`);
 
 guardLoop();

@@ -115,6 +115,7 @@
   <section class="card">
     <h2>Qué las eliminó</h2>
     <div id="kills"></div>
+    <div class="muted" id="rugcheck" style="margin-top:6px"></div>
   </section>
 
   <section class="card">
@@ -232,6 +233,7 @@ function render(s) {
     <div class="bar"><i style="width:${(k.n / maxK) * 100}%;background:${colors[k.agent]}"></i></div></div>`).join('')
     : '<div class="empty">Aún nada.</div>';
 
+  $('rugcheck').textContent = s.rugcheckError ? `⚠️ RugCheck no responde (${s.rugcheckError.slice(0, 80)}). Se usan datos de la blockchain: sin regla del dev y solo pasan tokens de PumpSwap.` : '';
   $('openCount').textContent = s.positions.length ? s.positions.length + ' abiertas' : '';
   $('positions').innerHTML = s.positions.length ? s.positions.map((p) => `
     <div class="trade">
