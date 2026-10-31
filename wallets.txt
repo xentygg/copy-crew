@@ -1,0 +1,3 @@
+# Smart wallets a copiar: una dirección por línea.
+# Las líneas que empiezan por # se ignoran.
+# Mira GUIA.md (paso 4) para saber de dónde sacarlas.

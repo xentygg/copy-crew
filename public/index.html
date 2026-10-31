@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0d12">
+<title>Copy Crew</title>
+<style>
+  :root {
+    --bg: #0b0d12; --card: #151922; --card2: #1c2130; --line: #262c3b;
+    --text: #e8ecf4; --muted: #8a93a6; --green: #2ecc71; --red: #ff5c5c; --amber: #f5a623;
+    --scout: #3b82f6; --filter: #8b5cf6; --analyst: #f59e0b; --guard: #14b8a6; --sniper: #ec4899;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 560px; margin: 0 auto; padding: 16px 16px 48px; }
+  header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  header h1 { font-size: 22px; margin: 0; }
+  header .sub { color: var(--muted); font-size: 12px; }
+  .pill { margin-left: auto; padding: 4px 10px; border-radius: 99px; font-size: 12px; font-weight: 700; background: var(--card2); }
+  .pill.live { background: #3a1015; color: var(--red); }
+  .pill.sim { background: #2a2410; color: var(--amber); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 14px; margin-bottom: 12px; }
+  .row { display: flex; align-items: center; gap: 8px; }
+  .muted { color: var(--muted); font-size: 12px; }
+  .big { font-size: 44px; font-weight: 800; letter-spacing: -1px; }
+  .pos { color: var(--green); } .neg { color: var(--red); }
+  .mult { margin-left: auto; padding: 4px 10px; border-radius: 99px; font-weight: 800; background: #10301f; color: var(--green); }
+  .mult.neg { background: #3a1015; color: var(--red); }
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 10px; }
+  .stat { background: var(--card2); border-radius: 10px; padding: 8px; }
+  .stat b { display: block; font-size: 15px; }
+  .stat span { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; }
+  h2 { font-size: 16px; margin: 0 0 10px; display: flex; justify-content: space-between; align-items: baseline; }
+  h2 small { color: var(--muted); font-weight: 400; font-size: 12px; }
+  .crew { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+  .agent { background: var(--card2); border-radius: 12px; padding: 8px 4px; text-align: center; border-top: 3px solid; }
+  .agent .name { font-size: 11px; font-weight: 700; }
+  .agent .n { font-size: 18px; font-weight: 800; }
+  .agent .l { font-size: 9px; color: var(--muted); text-transform: uppercase; }
+  .bar { height: 6px; border-radius: 3px; background: var(--card2); overflow: hidden; margin-top: 3px; }
+  .bar i { display: block; height: 100%; }
+  .kill { margin-bottom: 8px; font-size: 13px; }
+  .trade { display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; align-items: center; padding: 10px 0; border-top: 1px solid var(--line); font-size: 13px; }
+  .trade:first-of-type { border-top: 0; }
+  .trade .r { text-align: right; }
+  .trade .arrow { color: var(--muted); }
+  .sym { font-weight: 700; }
+  button { font: inherit; font-weight: 700; border: 0; border-radius: 12px; padding: 12px; color: var(--text); background: var(--card2); cursor: pointer; }
+  button.danger { background: #3a1015; color: var(--red); }
+  button.small { padding: 6px 10px; font-size: 12px; }
+  .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .controls .full { grid-column: span 2; }
+  .log { font: 12px/1.5 ui-monospace, Menlo, monospace; max-height: 320px; overflow-y: auto; }
+  .log div { padding: 2px 0; border-bottom: 1px solid #1a1f2b; overflow-wrap: anywhere; }
+  .tag { display: inline-block; min-width: 56px; font-weight: 700; }
+  svg { display: block; width: 100%; height: 70px; margin-top: 10px; }
+  .banner { background: #3a1015; color: var(--red); padding: 10px 12px; border-radius: 12px; margin-bottom: 12px; font-weight: 600; }
+  .empty { color: var(--muted); font-size: 13px; padding: 6px 0; }
+  a { color: inherit; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div>
+      <h1>Copy Crew</h1>
+      <div class="sub" id="sub">cargando…</div>
+    </div>
+    <span class="pill" id="mode">…</span>
+  </header>
+
+  <div id="banner"></div>
+
+  <section class="card">
+    <div class="row muted"><span id="cap"></span><span class="mult" id="mult">1.00×</span></div>
+    <div class="big" id="equity">$—</div>
+    <div id="pnl" class="muted">—</div>
+    <svg id="chart" viewBox="0 0 300 70" preserveAspectRatio="none"></svg>
+    <div class="stats">
+      <div class="stat"><b id="sCopied">0</b><span>copiadas</span></div>
+      <div class="stat"><b id="sWin">—</b><span>acierto</span></div>
+      <div class="stat"><b id="sBest">—</b><span>mejor</span></div>
+      <div class="stat"><b id="sDD">0%</b><span>drawdown</span></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>El equipo <small>una copia = 5/5 aprobados</small></h2>
+    <div class="crew">
+      <div class="agent" style="border-color:var(--scout)"><div class="name">Scout</div><div class="n" id="aScout">0</div><div class="l">vistas</div></div>
+      <div class="agent" style="border-color:var(--filter)"><div class="name">Filter</div><div class="n" id="aFilter">0</div><div class="l">eliminadas</div></div>
+      <div class="agent" style="border-color:var(--analyst)"><div class="name">Analyst</div><div class="n" id="aAnalyst">0</div><div class="l">eliminadas</div></div>
+      <div class="agent" style="border-color:var(--guard)"><div class="name">Guard</div><div class="n" id="aGuard">0</div><div class="l" id="aGuardL">stops</div></div>
+      <div class="agent" style="border-color:var(--sniper)"><div class="name">Sniper</div><div class="n" id="aSniper">0</div><div class="l">copiadas</div></div>
+    </div>
+    <div class="muted" style="margin-top:8px" id="signals"></div>
+  </section>
+
+  <section class="card">
+    <h2>Qué las eliminó</h2>
+    <div id="kills"></div>
+  </section>
+
+  <section class="card">
+    <h2>Posiciones abiertas <small id="openCount"></small></h2>
+    <div id="positions"></div>
+  </section>
+
+  <section class="card">
+    <h2>Espejo <small>wallet → tu copia</small></h2>
+    <div id="mirror"></div>
+  </section>
+
+  <section class="card">
+    <h2>Controles</h2>
+    <div class="controls">
+      <button id="btnPause">Pausar</button>
+      <button class="danger" id="btnSellAll">Vender todo</button>
+      <button class="full" id="btnMode">Cambiar modo</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Actividad</h2>
+    <div class="log" id="log"></div>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const usd = (n, sign) => n == null ? '—' : (sign && n > 0 ? '+' : n < 0 ? '−' : '') + '$' + Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const short = (a) => a ? a.slice(0, 4) + '…' + a.slice(-4) : '?';
+const ago = (t) => { const s = (Date.now() - t) / 1000; return s < 60 ? Math.round(s) + 's' : s < 3600 ? Math.round(s / 60) + 'm' : (s / 3600).toFixed(1) + 'h'; };
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const colors = { scout: 'var(--scout)', filter: 'var(--filter)', analyst: 'var(--analyst)', guard: 'var(--guard)', sniper: 'var(--sniper)', error: 'var(--red)', crew: 'var(--muted)' };
+let S = null;
+
+async function api(path, body) {
+  const r = await fetch(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body || {}) });
+  const j = await r.json();
+  if (!r.ok) alert(j.error || 'Error');
+  refresh();
+}
+
+function chart(points) {
+  const svg = $('chart');
+  if (!points || points.length < 2) { svg.innerHTML = ''; return; }
+  const ys = points.map((p) => p.usd);
+  const min = Math.min(...ys), max = Math.max(...ys), span = max - min || 1;
+  const d = points.map((p, i) => `${(i / (points.length - 1)) * 300},${66 - ((p.usd - min) / span) * 62}`).join(' L');
+  const up = ys[ys.length - 1] >= ys[0];
+  const c = up ? 'var(--green)' : 'var(--red)';
+  svg.innerHTML = `<path d="M${d} L300,70 L0,70Z" fill="${c}" opacity=".12"/><path d="M${d}" fill="none" stroke="${c}" stroke-width="2" vector-effect="non-scaling-stroke"/>`;
+}
+
+function render(s) {
+  S = s;
+  const live = s.mode === 'live';
+  $('mode').textContent = live ? '● REAL' : 'SIM';
+  $('mode').className = 'pill ' + (live ? 'live' : 'sim');
+  $('sub').textContent = `${short(s.wallet)} · ${ago(s.startedAt)} en marcha · SOL $${(s.solUsd || 0).toFixed(0)}`;
+  $('banner').innerHTML = s.paused ? `<div class="banner">⏸ En pausa: ${esc(s.pauseReason || 'manual')}. No se abren operaciones nuevas.</div>` : '';
+
+  const start = s.startEquityUsd, eq = s.equityUsd;
+  $('equity').textContent = usd(eq);
+  $('cap').textContent = `Límite $${s.spendCapUsd} · inicio ${usd(start)}`;
+  if (start && eq != null) {
+    const pnl = eq - start, m = eq / start;
+    $('pnl').innerHTML = `<span class="${pnl >= 0 ? 'pos' : 'neg'}">${usd(pnl, true)} (${((m - 1) * 100).toFixed(1)}%)</span>`;
+    $('mult').textContent = m.toFixed(2) + '×';
+    $('mult').className = 'mult' + (m < 1 ? ' neg' : '');
+  }
+  chart(s.equity);
+
+  const st = s.stats;
+  $('sCopied').textContent = s.counters.copied;
+  $('sWin').textContent = st.winRate == null ? '—' : st.winRate.toFixed(0) + '%';
+  $('sBest').textContent = st.bestUsd == null ? '—' : usd(st.bestUsd, true);
+  $('sDD').textContent = '−' + (st.maxDrawdownPct || 0).toFixed(1) + '%';
+
+  $('aScout').textContent = s.counters.seen;
+  $('aFilter').textContent = s.counters.filterKilled;
+  $('aAnalyst').textContent = s.counters.analystKilled;
+  $('aGuard').textContent = '−' + s.plan.sl + '%';
+  $('aGuardL').textContent = `stop · ${s.counters.guardSet} fijados`;
+  $('aSniper').textContent = s.counters.copied;
+  $('signals').textContent = `${s.counters.signals} señales confirmadas · ${s.counters.skipped} ignoradas por límites · ${st.trades} cerradas (${st.wins} verdes, ${st.trades - st.wins} rojas)`;
+
+  const maxK = Math.max(1, ...s.kills.map((k) => k.n));
+  $('kills').innerHTML = s.kills.length ? s.kills.map((k) => `
+    <div class="kill"><div class="row"><span>${esc(k.label)}</span><span class="muted" style="margin-left:auto">${k.n.toLocaleString()}</span></div>
+    <div class="bar"><i style="width:${(k.n / maxK) * 100}%;background:${colors[k.agent]}"></i></div></div>`).join('')
+    : '<div class="empty">Aún nada.</div>';
+
+  $('openCount').textContent = s.positions.length ? s.positions.length + ' abiertas' : '';
+  $('positions').innerHTML = s.positions.length ? s.positions.map((p) => `
+    <div class="trade">
+      <div><span class="sym">${esc(p.symbol)}</span>${p.paper ? ' <span class="muted">SIM</span>' : ''}<br><span class="muted">${(p.costSol).toFixed(3)} SOL · ${ago(p.openedAt)}</span></div>
+      <div class="${p.pnlPct >= 0 ? 'pos' : 'neg'}" style="font-weight:800">${p.pnlPct >= 0 ? '+' : ''}${p.pnlPct.toFixed(1)}%</div>
+      <div class="r">${p.forceExit ? `<span class="muted">vendiendo…</span>` : `<button class="small danger" data-sell="${esc(p.id)}">Vender</button>`}</div>
+    </div>`).join('') : '<div class="empty">Ninguna. Sniper espera un 5/5.</div>';
+
+  $('mirror').innerHTML = s.closed.length ? s.closed.map((t) => {
+    const src = t.sources[0];
+    const pct = t.sources.length ? ((t.costSol / (t.sources.reduce((a, b) => a + b.sol, 0) / t.sources.length)) * 100).toFixed(0) : '?';
+    return `<div class="trade">
+      <div><span class="sym">${esc(t.symbol)}</span>${t.paper ? ' <span class="muted">SIM</span>' : ''}<br>
+        <span class="muted"><a href="https://solscan.io/account/${esc(src?.wallet)}" target="_blank">${short(src?.wallet)}</a> ${src ? src.sol.toFixed(2) : '?'} SOL${t.sources.length > 1 ? ` +${t.sources.length - 1}` : ''}</span></div>
+      <div class="arrow">→</div>
+      <div class="r"><b class="${t.pnlUsd >= 0 ? 'pos' : 'neg'}">${usd(t.pnlUsd, true)}</b><br>
+        <span class="muted">${t.costSol.toFixed(3)} SOL (${pct}%) · ${esc(t.exitReason)}</span></div>
+    </div>`;
+  }).join('') : '<div class="empty">Aún no hay operaciones cerradas.</div>';
+
+  $('btnPause').textContent = s.paused ? '▶ Reanudar' : '⏸ Pausar';
+  $('btnMode').textContent = live ? 'Volver a modo simulado' : '🔴 Activar dinero REAL';
+  $('btnMode').className = 'full' + (live ? '' : ' danger');
+
+  $('log').innerHTML = s.log.map((l) => `<div><span class="muted">${new Date(l.t).toLocaleTimeString()}</span> <span class="tag" style="color:${colors[l.agent] || 'inherit'}">${esc(l.agent)}</span> ${esc(l.msg)}</div>`).join('');
+}
+
+async function refresh() {
+  try {
+    const r = await fetch('/api/state');
+    if (r.ok) render(await r.json());
+  } catch {}
+}
+
+$('btnPause').onclick = () => api(S.paused ? '/api/resume' : '/api/pause');
+$('btnSellAll').onclick = () => confirm('¿Vender TODAS las posiciones ahora?') && api('/api/sell');
+$('btnMode').onclick = () => {
+  if (S.mode === 'live') return confirm('¿Volver a simulado? (solo si no hay posiciones reales abiertas)') && api('/api/mode', { mode: 'watch' });
+  const c = prompt('Vas a operar con DINERO REAL desde la wallet del bot.\nEscribe REAL para confirmar:');
+  if (c) api('/api/mode', { mode: 'live', confirm: c.trim().toUpperCase() });
+};
+document.addEventListener('click', (e) => {
+  const id = e.target.dataset?.sell;
+  if (id && confirm('¿Vender esta posición?')) api('/api/sell', { id });
+});
+refresh();
+setInterval(refresh, 3000);
+</script>
+</body>
+</html>
