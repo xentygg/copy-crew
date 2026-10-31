@@ -1,7 +1,7 @@
 import http from 'node:http';
 import fs from 'node:fs';
 import crypto from 'node:crypto';
-import { cfg, saveSetting } from './config.js';
+import { cfg, saveSetting, POSITION_PRESETS } from './config.js';
 import { state, log } from './state.js';
 import { reasonLabel, forceSell, switchMode } from './crew.js';
 import { keypair, withdrawAll, getSolBalance } from './solana.js';
@@ -99,6 +99,8 @@ function publicState() {
     },
     plan: { sl: cfg.stopLossPct, tp: cfg.takeProfitPct },
     confirmWallets: cfg.confirmWallets,
+    maxOpenPositions: cfg.maxOpenPositions,
+    maxTradeUsd: cfg.maxTradeUsd,
     rugcheckError: lastRugcheckError,
     positions: state.positions,
     closed: closed.slice(0, 60),
@@ -182,6 +184,14 @@ export function startServer({ onWebhook }) {
             const n = Number(body.n);
             saveSetting('confirmWallets', n);
             log('scout', `confirmación cambiada: ${n === 1 ? 'basta 1 smart wallet' : `${n} smart wallets deben comprar el mismo token`}`);
+            break;
+          }
+          case '/api/positions': {
+            const n = Number(body.n);
+            if (!POSITION_PRESETS[n]) return json(res, 400, { error: 'opción no válida' });
+            saveSetting('maxOpenPositions', n);
+            saveSetting('maxTradeUsd', POSITION_PRESETS[n]);
+            log('sniper', `límites cambiados: hasta ${n} posiciones de máximo $${POSITION_PRESETS[n]}`);
             break;
           }
           case '/api/withdraw': {

@@ -93,12 +93,15 @@ export function checkConfig() {
 
 // Ajustes cambiados desde el panel: se guardan aparte y tienen prioridad sobre .env.
 const SETTINGS_FILE = 'data/settings.json';
-const EDITABLE = { confirmWallets: [1, 2, 3] };
+const EDITABLE = { confirmWallets: [1, 2, 3], maxOpenPositions: [3, 5], maxTradeUsd: [9, 15] };
 try {
   for (const [k, v] of Object.entries(JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf8')))) {
     if (EDITABLE[k]?.includes(v)) cfg[k] = v;
   }
 } catch {}
+
+// Combinaciones de posiciones que se eligen desde el panel.
+export const POSITION_PRESETS = { 3: 15, 5: 9 };
 
 export function saveSetting(key, value) {
   if (!EDITABLE[key]?.includes(value)) throw new Error('valor no permitido');

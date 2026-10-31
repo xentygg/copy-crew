@@ -50,6 +50,7 @@
   button.danger { background: #3a1015; color: var(--red); }
   button.small { padding: 6px 10px; font-size: 12px; }
   button.pick { width: 46px; height: 46px; padding: 0; font-size: 18px; }
+  button.pick.wide { width: auto; padding: 0 12px; font-size: 15px; }
   button.on { background: var(--scout); color: #fff; }
   .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   .controls .full { grid-column: span 2; }
@@ -109,6 +110,10 @@
     <div class="row" style="margin-top:10px;gap:6px">
       <span class="muted" style="flex:1">Wallets que deben comprar el mismo token:</span>
       <button class="pick" data-confirm="1">1</button><button class="pick" data-confirm="2">2</button><button class="pick" data-confirm="3">3</button>
+    </div>
+    <div class="row" style="margin-top:10px;gap:6px">
+      <span class="muted" style="flex:1">Posiciones abiertas a la vez:</span>
+      <button class="pick wide" data-positions="3">3 × $15</button><button class="pick wide" data-positions="5">5 × $9</button>
     </div>
   </section>
 
@@ -257,6 +262,7 @@ function render(s) {
   $('ranking').innerHTML = s.walletRanking?.length ? s.walletRanking.map((r) => `<div class="trade"><div><a href="https://solscan.io/account/${esc(r.wallet)}" target="_blank">${short(r.wallet)}</a><br><span class="muted">${r.trades} copias · ${r.wins} verdes</span></div><div></div><div class="r"><b class="${r.pnlUsd >= 0 ? 'pos' : 'neg'}">${usd(r.pnlUsd, true)}</b></div></div>`).join('')
     : '<div class="empty">Aparecerá cuando se cierren las primeras copias.</div>';
   document.querySelectorAll('[data-confirm]').forEach((b) => b.classList.toggle('on', Number(b.dataset.confirm) === s.confirmWallets));
+  document.querySelectorAll('[data-positions]').forEach((b) => b.classList.toggle('on', Number(b.dataset.positions) === s.maxOpenPositions));
   const h = s.hunter;
   if (h) {
     $('hTracked').textContent = `${h.tracked}/${h.max}`;
@@ -304,6 +310,8 @@ $('btnMode').onclick = () => {
 document.addEventListener('click', (e) => {
   const n = e.target.dataset?.confirm;
   if (n) return api('/api/confirm', { n: Number(n) });
+  const np = e.target.dataset?.positions;
+  if (np) return api('/api/positions', { n: Number(np) });
   const id = e.target.dataset?.sell;
   if (id && confirm('¿Vender esta posición?')) api('/api/sell', { id });
 });
