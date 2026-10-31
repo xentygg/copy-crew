@@ -112,7 +112,7 @@ export function startSetup() {
       fs.rmSync(CODE_FILE, { force: true });
       send(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="refresh" content="8;url=/"><body style="background:#0b0d12;color:#e8ecf4;font:18px -apple-system,sans-serif;padding:24px">
-<h2>✅ Guardado</h2><p>El bot se está reiniciando. En unos segundos se abrirá el panel y te pedirá la contraseña (el usuario da igual).</p><p>En el panel verás la <b>dirección de la wallet del bot</b>: envía ahí el SOL.</p></body>`);
+<h2>✅ Guardado</h2><p>El bot se está reiniciando. En unos segundos se abrirá el panel y te pedirá la contraseña.</p><p>En el panel verás la <b>dirección de la wallet del bot</b>: envía ahí el SOL.</p></body>`);
       setTimeout(() => process.exit(0), 500); // PM2 lo vuelve a arrancar ya configurado
     })
     .listen(cfg.port);

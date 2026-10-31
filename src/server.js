@@ -10,14 +10,34 @@ import { ensureWebhook } from './helius.js';
 
 const page = () => fs.readFileSync(new URL('../public/index.html', import.meta.url));
 
-function authorized(req) {
-  const h = req.headers.authorization || '';
-  if (!h.startsWith('Basic ')) return false;
-  const pass = Buffer.from(h.slice(6), 'base64').toString().split(':').slice(1).join(':');
-  const a = Buffer.from(pass);
-  const b = Buffer.from(cfg.dashboardPassword);
+const same = (x, y) => {
+  const a = Buffer.from(String(x));
+  const b = Buffer.from(String(y));
   return a.length === b.length && crypto.timingSafeEqual(a, b);
+};
+
+// La sesión es una firma de la contraseña: cambiarla cierra todas las sesiones.
+const sessionToken = () => crypto.createHmac('sha256', cfg.webhookSecret).update(cfg.dashboardPassword).digest('hex');
+
+function authorized(req) {
+  const cookie = (req.headers.cookie || '').split(/;\s*/).find((c) => c.startsWith('cc_session='));
+  return Boolean(cookie) && same(cookie.slice('cc_session='.length), sessionToken());
 }
+
+let loginFailures = 0;
+setInterval(() => (loginFailures = 0), 15 * 60_000).unref();
+
+const loginPage = (error = '') => `<!doctype html><html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>Copy Crew</title><style>
+body{margin:0;background:#0b0d12;color:#e8ecf4;font:16px -apple-system,Segoe UI,Roboto,sans-serif}
+main{max-width:380px;margin:0 auto;padding:60px 16px}h1{font-size:26px;margin:0 0 20px}
+input{display:block;width:100%;box-sizing:border-box;padding:14px;border-radius:12px;border:1px solid #2a3142;background:#151922;color:#e8ecf4;font-size:17px}
+button{margin-top:14px;width:100%;padding:14px;border:0;border-radius:12px;background:#2ecc71;color:#06210f;font-size:17px;font-weight:800}
+.err{background:#3a1015;color:#ff5c5c;padding:10px 12px;border-radius:10px;margin-bottom:14px}label{display:block;margin:12px 0 6px;color:#8a93a6}
+</style></head><body><main><h1>Copy Crew</h1>${error ? `<div class="err">${error}</div>` : ''}
+<form method="post" action="/login"><label>Contraseña del panel</label>
+<input name="password" type="password" autocomplete="current-password" autocapitalize="off" autocorrect="off" spellcheck="false" autofocus required>
+<button>Entrar</button></form></main></body></html>`;
 
 function readBody(req, limit = 5_000_000) {
   return new Promise((resolve, reject) => {
@@ -84,9 +104,27 @@ export function startServer({ onWebhook }) {
         return;
       }
 
+      if (req.method === 'POST' && url.pathname === '/login') {
+        const html = (code, body, headers = {}) => {
+          res.writeHead(code, { 'content-type': 'text/html; charset=utf-8', ...headers });
+          res.end(body);
+        };
+        if (loginFailures >= 20) return html(429, loginPage('Demasiados intentos. Espera 15 minutos.'));
+        const pass = new URLSearchParams(await readBody(req, 10_000)).get('password') || '';
+        if (!same(pass, cfg.dashboardPassword) && !same(pass.trim(), cfg.dashboardPassword)) {
+          loginFailures++;
+          return html(401, loginPage('Contraseña incorrecta.'));
+        }
+        return html(302, '', {
+          location: '/',
+          'set-cookie': `cc_session=${sessionToken()}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${60 * 60 * 24 * 30}`,
+        });
+      }
+
       if (!authorized(req)) {
-        res.writeHead(401, { 'www-authenticate': 'Basic realm="copy-crew"' });
-        return res.end('Contraseña requerida');
+        if (url.pathname.startsWith('/api/')) return json(res, 401, { error: 'sesión caducada, recarga la página' });
+        res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+        return res.end(loginPage());
       }
 
       if (req.method === 'GET' && url.pathname === '/') {

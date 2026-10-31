@@ -85,7 +85,7 @@ Al terminar (1-2 minutos) verás algo así:
    - deja **vacío** el campo de clave privada (el bot crea su wallet),
    - una **contraseña** para el panel,
    - la lista de **smart wallets**.
-3. Pulsa **Guardar y arrancar**. A los pocos segundos se abre el panel: entra con tu contraseña (el usuario da igual). Añade la página a la pantalla de inicio.
+3. Pulsa **Guardar y arrancar**. A los pocos segundos se abre el panel: entra con tu contraseña. Añade la página a la pantalla de inicio.
 
 ## Paso 7: enviar el SOL y arrancar
 
