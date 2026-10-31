@@ -144,8 +144,10 @@ export async function guardLoop() {
           await closePosition(pos, why);
         }
       } catch (e) {
-        pos.quoteFails = (pos.quoteFails || 0) + 1;
-        if (pos.forceExit || pos.quoteFails > 3) {
+        // Un fallo pasajero de Jupiter (saturado, red) no es motivo para vender.
+        // Solo cuenta cuando Jupiter dice de verdad que no hay ruta; ~2 min seguidos → vender igualmente.
+        if (!e.transient) pos.quoteFails = (pos.quoteFails || 0) + 1;
+        if (pos.forceExit || pos.quoteFails > 12) {
           // Intentar vender igualmente con más slippage.
           pos.sellFails++;
           try {
@@ -157,7 +159,7 @@ export async function guardLoop() {
       }
     }
     save();
-    await sleep(state.positions.length ? 4000 : 2000);
+    await sleep(3000); // el ritmo real lo marca el regulador de peticiones a Jupiter
   }
 }
 

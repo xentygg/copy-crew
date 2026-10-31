@@ -61,7 +61,7 @@ export function kill(agent, reason, detail) {
   const key = `${agent}:${reason}`;
   state.killReasons[key] = (state.killReasons[key] || 0) + 1;
   // Guardar el último error concreto de los fallos de API para poder diagnosticarlos desde el panel.
-  if ((reason.startsWith('nodata') || reason === 'noroute') && detail) (state.killDetails ||= {})[key] = String(detail).slice(0, 160);
+  if ((reason.startsWith('nodata') || reason === 'noroute' || reason === 'busy') && detail) (state.killDetails ||= {})[key] = String(detail).slice(0, 160);
   if (agent === 'filter') state.counters.filterKilled++;
   if (agent === 'analyst') state.counters.analystKilled++;
   save();

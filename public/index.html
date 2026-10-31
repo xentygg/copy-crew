@@ -230,7 +230,7 @@ function render(s) {
   $('aGuard').textContent = '−' + s.plan.sl + '%';
   $('aGuardL').textContent = `stop · ${s.counters.guardSet} fijados`;
   $('aSniper').textContent = s.counters.copied;
-  $('signals').textContent = `${(s.counters.events || 0).toLocaleString()} eventos de Helius · ${s.counters.signals} señales confirmadas · ${s.counters.skipped} ignoradas por límites · ${st.trades} cerradas (${st.wins} verdes, ${st.trades - st.wins} rojas)`;
+  $('signals').textContent = `${s.jupiter ? `Jupiter: ${s.jupiter.calls.toLocaleString()} consultas, ${s.jupiter.rateLimited} rechazadas · ` : ''}${(s.counters.events || 0).toLocaleString()} eventos de Helius · ${s.counters.signals} señales confirmadas · ${s.counters.skipped} ignoradas por límites · ${st.trades} cerradas (${st.wins} verdes, ${st.trades - st.wins} rojas)`;
 
   const maxK = Math.max(1, ...s.kills.map((k) => k.n));
   $('kills').innerHTML = s.kills.length ? s.kills.map((k) => `

@@ -8,6 +8,7 @@ export const REASONS = {
   sold: () => 'la wallet vendió temprano',
   late: () => `precio ya +${cfg.maxEntryPremiumPct}% (llegamos tarde)`,
   noroute: () => 'sin ruta de swap',
+  busy: () => 'Jupiter saturado (no se pudo cotizar)',
   nodata: () => 'sin datos: saldo de la smart wallet',
 };
 
@@ -28,7 +29,7 @@ export async function runAnalyst(mint, buys, amountLamports, decimals) {
   try {
     q = await quote(SOL_MINT, mint, amountLamports);
   } catch (e) {
-    return { ok: false, reason: 'noroute', detail: e.message };
+    return { ok: false, reason: e.transient ? 'busy' : 'noroute', detail: e.message };
   }
   const latest = buys.reduce((a, b) => (b.t > a.t ? b : a));
   const walletPrice = latest.sol / latest.tokens; // SOL por token

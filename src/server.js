@@ -8,6 +8,7 @@ import { keypair, withdrawAll, getSolBalance } from './solana.js';
 import { parseWallets, saveWallets, trackedWallets, currentNotes } from './wallets.js';
 import { hunterSummary } from './hunter-loop.js';
 import { lastRugcheckError } from './agents/filter.js';
+import { jupStats } from './jupiter.js';
 
 const page = () => fs.readFileSync(new URL('../public/index.html', import.meta.url));
 
@@ -102,6 +103,7 @@ function publicState() {
     maxOpenPositions: cfg.maxOpenPositions,
     maxTradeUsd: cfg.maxTradeUsd,
     rugcheckError: lastRugcheckError,
+    jupiter: jupStats,
     positions: state.positions,
     closed: closed.slice(0, 60),
     equity: state.equity.filter((_, i, arr) => arr.length < 300 || i % Math.ceil(arr.length / 300) === 0 || i === arr.length - 1),
