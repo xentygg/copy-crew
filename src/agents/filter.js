@@ -12,6 +12,9 @@ export const REASONS = {
   dev: () => `wallet del dev > ${cfg.maxDevPct}%`,
   lp: () => 'LP no quemado',
   nodata: () => 'sin datos (fallo de API)',
+  nodata_dex: () => 'sin datos: DexScreener',
+  nodata_rpc: () => 'sin datos: Solana (Helius)',
+  nodata_holders: () => 'sin datos: RugCheck y tenedores',
 };
 
 // Cuentas que pertenecen a pools de liquidez (no cuentan como "tenedores").
@@ -109,12 +112,12 @@ export async function runFilter(mint) {
   try {
     dex = await dexInfo(mint);
   } catch (e) {
-    return { ok: false, reason: 'nodata', detail: `dexscreener: ${e.message}` };
+    return { ok: false, reason: 'nodata_dex', detail: e.message };
   }
   try {
     mintInfo = await getMintInfo(mint);
   } catch (e) {
-    return { ok: false, reason: 'nodata', detail: `solana: ${e.message}` };
+    return { ok: false, reason: 'nodata_rpc', detail: e.message };
   }
   const ctx = { symbol: dex.symbol, liquidityUsd: dex.liquidityUsd, decimals: mintInfo.decimals, dexId: dex.dexId };
 
@@ -134,7 +137,7 @@ export async function runFilter(mint) {
     try {
       h = await chainHolderStats(mint, mintInfo, dex.dexId);
     } catch (e2) {
-      return { ok: false, reason: 'nodata', ctx, detail: `rugcheck: ${e.message} · blockchain: ${e2.message}` };
+      return { ok: false, reason: 'nodata_holders', ctx, detail: `rugcheck: ${e.message} · blockchain: ${e2.message}` };
     }
   }
   Object.assign(ctx, h);

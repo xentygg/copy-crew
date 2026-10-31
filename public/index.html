@@ -235,6 +235,7 @@ function render(s) {
   const maxK = Math.max(1, ...s.kills.map((k) => k.n));
   $('kills').innerHTML = s.kills.length ? s.kills.map((k) => `
     <div class="kill"><div class="row"><span>${esc(k.label)}</span><span class="muted" style="margin-left:auto">${k.n.toLocaleString()}</span></div>
+    ${k.detail ? `<div class="muted" style="overflow-wrap:anywhere">último error: ${esc(k.detail)}</div>` : ''}
     <div class="bar"><i style="width:${(k.n / maxK) * 100}%;background:${colors[k.agent]}"></i></div></div>`).join('')
     : '<div class="empty">Aún nada.</div>';
 

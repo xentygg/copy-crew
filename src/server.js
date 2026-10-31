@@ -87,7 +87,7 @@ function publicState() {
     spendCapUsd: cfg.spendCapUsd,
     counters: state.counters,
     kills: Object.entries(state.killReasons)
-      .map(([k, n]) => ({ agent: k.split(':')[0], label: reasonLabel(k), n }))
+      .map(([k, n]) => ({ agent: k.split(':')[0], label: reasonLabel(k), n, detail: state.killDetails?.[k] }))
       .sort((a, b) => b.n - a.n),
     stats: {
       trades: closed.length,

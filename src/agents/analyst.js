@@ -8,7 +8,7 @@ export const REASONS = {
   sold: () => 'la wallet vendió temprano',
   late: () => `precio ya +${cfg.maxEntryPremiumPct}% (llegamos tarde)`,
   noroute: () => 'sin ruta de swap',
-  nodata: () => 'sin datos (fallo de API)',
+  nodata: () => 'sin datos: saldo de la smart wallet',
 };
 
 export async function runAnalyst(mint, buys, amountLamports, decimals) {

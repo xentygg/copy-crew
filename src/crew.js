@@ -31,7 +31,7 @@ export async function handleSignal(mint, buys) {
     // FILTER
     const f = await runFilter(mint);
     if (!f.ok) {
-      kill('filter', f.reason);
+      kill('filter', f.reason, f.detail);
       return log('filter', `✗ ${f.ctx?.symbol || short(mint)}: ${FILTER_REASONS[f.reason]()} ${f.detail || ''}`);
     }
     log('filter', `✓ ${f.ctx.symbol} pasa las reglas (liq $${Math.round(f.ctx.liquidityUsd)}, top10 ${f.ctx.top10.toFixed(0)}%)`);
@@ -44,7 +44,7 @@ export async function handleSignal(mint, buys) {
     // ANALYST
     const a = await runAnalyst(mint, buys, BigInt(Math.floor(amountSol * 1e9)), f.ctx.decimals);
     if (!a.ok) {
-      kill('analyst', a.reason);
+      kill('analyst', a.reason, a.detail);
       return log('analyst', `✗ ${f.ctx.symbol}: ${ANALYST_REASONS[a.reason]()} ${a.detail ? `(${short(a.detail)})` : ''}`);
     }
     log('analyst', `✓ ${f.ctx.symbol}: wallets siguen dentro, entrada +${a.premiumPct.toFixed(0)}% sobre ellas`);
