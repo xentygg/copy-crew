@@ -4,6 +4,8 @@ import http from 'node:http';
 import fs from 'node:fs';
 import crypto from 'node:crypto';
 import { cfg, checkConfig, loadWallets } from './config.js';
+import { Keypair } from '@solana/web3.js';
+import bs58 from 'bs58';
 import { loadKeypair } from './solana.js';
 
 const CODE_FILE = 'data/setup-code';
@@ -17,9 +19,9 @@ function setupCode() {
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 function form(missing, error = '') {
-  const field = (key, label, help, type = 'text') =>
+  const field = (key, label, help, type = 'text', required = true) =>
     missing.includes(key)
-      ? `<label>${label}<input name="${key}" type="${type}" autocomplete="off" autocapitalize="off" spellcheck="false" required></label><p>${help}</p>`
+      ? `<label>${label}<input name="${key}" type="${type}" autocomplete="off" autocapitalize="off" spellcheck="false"${required ? ' required' : ''}></label><p>${help}</p>`
       : '';
   const needWallets = !loadWallets().length;
   return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -34,7 +36,8 @@ ${error ? `<div class="err">${esc(error)}</div>` : ''}
 <form method="post">
 <label>Código de instalación<input name="code" inputmode="numeric" autocomplete="off" required></label><p>El número de 6 cifras que apareció en la consola del servidor al terminar la instalación.</p>
 ${field('HELIUS_API_KEY', 'API key de Helius', 'De dashboard.helius.dev → API Keys.')}
-${field('PRIVATE_KEY', 'Clave privada de la wallet DEL BOT', 'Phantom → Ajustes → Gestionar cuentas → (wallet del bot) → Mostrar clave privada. Solo la wallet nueva con los $100.', 'password')}
+${field('WITHDRAW_ADDRESS', 'Tu dirección de Phantom (para retirar)', 'Phantom → Recibir → Solana → copiar. Es pública, se puede compartir. El botón "Retirar" del panel solo podrá enviar el dinero aquí.')}
+${field('PRIVATE_KEY', 'Clave privada de la wallet del bot (opcional)', '<b>Déjalo vacío</b> y se creará una wallet nueva para el bot automáticamente. Te mostraremos su dirección para que le envíes el SOL.', 'password', false)}
 ${field('DASHBOARD_PASSWORD', 'Contraseña para el panel', 'Te la pedirá cada vez que abras el panel. No reutilices una contraseña importante.', 'password')}
 ${needWallets ? '<label>Smart wallets a copiar<textarea name="wallets" required placeholder="Una dirección por línea"></textarea></label><p>Pega entre 20 y 50 direcciones de gmgn.ai o kolscan.io. Podrás cambiarlas luego desde el panel.</p>' : ''}
 <button>Guardar y arrancar</button></form></main></body></html>`;
@@ -78,10 +81,15 @@ export function startSetup() {
       }
 
       const values = {};
-      for (const k of ['HELIUS_API_KEY', 'PRIVATE_KEY', 'DASHBOARD_PASSWORD']) {
+      for (const k of ['HELIUS_API_KEY', 'PRIVATE_KEY', 'DASHBOARD_PASSWORD', 'WITHDRAW_ADDRESS']) {
         if (missing.includes(k)) values[k] = (p[k] || '').trim();
       }
-      if (values.PRIVATE_KEY !== undefined) {
+      if (values.WITHDRAW_ADDRESS !== undefined && !ADDR.test(values.WITHDRAW_ADDRESS)) {
+        return send(form(missing, 'La dirección de Phantom no es válida. Cópiala desde Phantom → Recibir → Solana.'));
+      }
+      if (values.PRIVATE_KEY === '') {
+        values.PRIVATE_KEY = bs58.encode(Keypair.generate().secretKey);
+      } else if (values.PRIVATE_KEY !== undefined) {
         try {
           loadKeypair(values.PRIVATE_KEY);
         } catch {
@@ -103,7 +111,7 @@ export function startSetup() {
       fs.rmSync(CODE_FILE, { force: true });
       send(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="refresh" content="8;url=/"><body style="background:#0b0d12;color:#e8ecf4;font:18px -apple-system,sans-serif;padding:24px">
-<h2>✅ Guardado</h2><p>El bot se está reiniciando. En unos segundos se abrirá el panel y te pedirá la contraseña (el usuario da igual).</p></body>`);
+<h2>✅ Guardado</h2><p>El bot se está reiniciando. En unos segundos se abrirá el panel y te pedirá la contraseña (el usuario da igual).</p><p>En el panel verás la <b>dirección de la wallet del bot</b>: envía ahí el SOL.</p></body>`);
       setTimeout(() => process.exit(0), 500); // PM2 lo vuelve a arrancar ya configurado
     })
     .listen(cfg.port);

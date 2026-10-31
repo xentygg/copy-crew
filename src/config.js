@@ -19,6 +19,7 @@ export const cfg = {
   privateKey: env.PRIVATE_KEY || '',
   publicUrl: (env.PUBLIC_URL || '').replace(/\/$/, ''),
   dashboardPassword: env.DASHBOARD_PASSWORD || '',
+  withdrawAddress: env.WITHDRAW_ADDRESS || '',
   mode: env.MODE === 'live' ? 'live' : 'watch',
   port: num('PORT', 3000),
 
@@ -79,5 +80,6 @@ export function checkConfig() {
   if (!cfg.privateKey) missing.push('PRIVATE_KEY');
   if (!cfg.publicUrl) missing.push('PUBLIC_URL');
   if (!cfg.dashboardPassword) missing.push('DASHBOARD_PASSWORD');
+  if (!cfg.withdrawAddress) missing.push('WITHDRAW_ADDRESS');
   return missing;
 }

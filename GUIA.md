@@ -14,13 +14,13 @@ Tiempo total: unos 45 minutos. Todo se puede hacer desde el móvil.
 
 ---
 
-## Paso 1: wallet nueva para el bot (5 min)
+## Paso 1: tu dirección de Phantom (1 min)
 
-1. En **Phantom**: toca tu cuenta arriba a la izquierda → **Añadir / Conectar cuenta** → **Crear nueva cuenta**. Llámala "Bot".
-2. Envía a esa cuenta los **$100 en SOL**.
-3. Saca su clave privada: **Ajustes → Gestionar cuentas → Bot → Mostrar clave privada**. Cópiala en un lugar seguro; la pegarás en el paso 5.
+No hace falta crear ninguna wallet ni copiar claves privadas: **el bot crea su propia wallet** en tu servidor.
 
-> ⚠️ Usa **solo** esta wallet nueva. Quien tenga la clave privada puede vaciarla, así que no la compartas con nadie, ni conmigo.
+Solo necesitas la dirección **pública** de tu Phantom (para poder retirar): **Phantom → Recibir → Solana → copiar**. Es como un número de cuenta: se puede compartir sin peligro.
+
+> ⚠️ Nunca pegues en ningún sitio tus **12 palabras de recuperación**.
 
 ## Paso 2: cuenta en Helius (3 min)
 
@@ -81,12 +81,15 @@ Al terminar (1-2 minutos) verás algo así:
 2. Rellena el formulario (aquí sí puedes copiar y pegar):
    - el **código** de 6 cifras de la consola,
    - la **API key de Helius**,
-   - la **clave privada** de la wallet del bot,
+   - tu **dirección de Phantom** (para retirar),
+   - deja **vacío** el campo de clave privada (el bot crea su wallet),
    - una **contraseña** para el panel,
    - la lista de **smart wallets**.
 3. Pulsa **Guardar y arrancar**. A los pocos segundos se abre el panel: entra con tu contraseña (el usuario da igual). Añade la página a la pantalla de inicio.
 
-## Paso 7: arrancar
+## Paso 7: enviar el SOL y arrancar
+
+En el panel verás **"Wallet del bot"** con su dirección. Envía ahí el SOL desde Binance (**Retirar → SOL → red Solana**).
 
 1. El bot empieza en **SIM** (simulado). Déjalo **30 minutos** y comprueba que:
    - Scout ve compras (el contador sube).
@@ -102,6 +105,13 @@ Las smart wallets se cambian cuando quieras desde el propio panel (apartado **Sm
 - **Vender todo**: cierra todas las posiciones de inmediato.
 - **Vender** (en cada posición): cierra esa posición.
 - Si el capital cae un **50 %**, el bot se pausa solo.
+
+## Retirar el dinero
+
+1. **Vender todo** y espera a que no quede ninguna posición abierta.
+2. **💸 Retirar todo a mi Phantom** y escribe `RETIRAR`. Todo el SOL va a la dirección que pusiste en la configuración (y a ninguna otra).
+
+Copia de seguridad de la wallet del bot (por si algún día borras el servidor): en la consola, `grep PRIVATE_KEY ~/copy-crew/.env` muestra su clave privada, que puedes importar en Phantom (**Añadir cuenta → Importar clave privada**).
 
 ## Comandos útiles (en la consola del servidor)
 

@@ -4,7 +4,7 @@ import crypto from 'node:crypto';
 import { cfg, loadWallets } from './config.js';
 import { state, log } from './state.js';
 import { reasonLabel, forceSell, switchMode } from './crew.js';
-import { keypair } from './solana.js';
+import { keypair, withdrawAll, getSolBalance } from './solana.js';
 import { setTrackedWallets } from './agents/scout.js';
 import { ensureWebhook } from './helius.js';
 
@@ -44,6 +44,7 @@ function publicState() {
     paused: state.paused,
     pauseReason: state.pauseReason,
     wallet: keypair?.publicKey.toBase58(),
+    withdrawAddress: cfg.withdrawAddress,
     startedAt: state.startedAt,
     startEquityUsd: state.startEquityUsd,
     equityUsd: state.equityUsd,
@@ -122,8 +123,20 @@ export function startServer({ onWebhook }) {
             log('scout', `lista actualizada: vigilando ${list.length} smart wallets`);
             return json(res, 200, { ok: true, count: list.length });
           }
+          case '/api/withdraw': {
+            if (body.confirm !== 'RETIRAR') return json(res, 400, { error: 'Escribe RETIRAR para confirmar' });
+            if (state.positions.some((p) => !p.paper)) return json(res, 400, { error: 'Primero pulsa "Vender todo" y espera a que se cierren las posiciones' });
+            state.paused = true;
+            state.pauseReason = 'retiro';
+            const r = await withdrawAll(cfg.withdrawAddress);
+            log('crew', `💸 retirados ${r.sol.toFixed(4)} SOL a ${cfg.withdrawAddress} (${r.sig})`);
+            return json(res, 200, { ok: true, sol: r.sol });
+          }
           case '/api/mode':
             if (body.mode === 'live' && body.confirm !== 'REAL') return json(res, 400, { error: 'Escribe REAL para confirmar' });
+            if (body.mode === 'live' && Number(await getSolBalance()) / 1e9 < cfg.solReserve + 0.02) {
+              return json(res, 400, { error: 'La wallet del bot no tiene SOL suficiente. Envía el SOL primero.' });
+            }
             await switchMode(body.mode === 'live' ? 'live' : 'watch');
             break;
           default:

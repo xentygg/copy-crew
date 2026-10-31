@@ -52,6 +52,7 @@
   .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   .controls .full { grid-column: span 2; }
   textarea { width: 100%; height: 160px; background: var(--card2); color: var(--text); border: 1px solid var(--line); border-radius: 10px; padding: 10px; font: 12px/1.5 ui-monospace, Menlo, monospace; }
+  .addr { font: 14px/1.4 ui-monospace, Menlo, monospace; overflow-wrap: anywhere; background: var(--card2); padding: 10px; border-radius: 10px; margin-top: 6px; user-select: all; }
   .log { font: 12px/1.5 ui-monospace, Menlo, monospace; max-height: 320px; overflow-y: auto; }
   .log div { padding: 2px 0; border-bottom: 1px solid #1a1f2b; overflow-wrap: anywhere; }
   .tag { display: inline-block; min-width: 56px; font-weight: 700; }
@@ -72,6 +73,13 @@
   </header>
 
   <div id="banner"></div>
+
+  <section class="card" id="walletCard">
+    <h2>Wallet del bot <small id="botBal"></small></h2>
+    <div class="muted">Envía SOL (red Solana) a esta dirección:</div>
+    <div class="addr" id="botAddr">…</div>
+    <button class="full" id="btnCopy" style="width:100%;margin-top:8px">Copiar dirección</button>
+  </section>
 
   <section class="card">
     <div class="row muted"><span id="cap"></span><span class="mult" id="mult">1.00×</span></div>
@@ -119,6 +127,7 @@
       <button id="btnPause">Pausar</button>
       <button class="danger" id="btnSellAll">Vender todo</button>
       <button class="full" id="btnMode">Cambiar modo</button>
+      <button class="full" id="btnWithdraw">💸 Retirar todo a mi Phantom</button>
     </div>
   </section>
 
@@ -220,6 +229,9 @@ function render(s) {
     </div>`;
   }).join('') : '<div class="empty">Aún no hay operaciones cerradas.</div>';
 
+  $('botAddr').textContent = s.wallet;
+  $('botBal').textContent = live && s.equityUsd != null ? usd(s.equityUsd) : '';
+  $('btnWithdraw').title = s.withdrawAddress;
   $('btnPause').textContent = s.paused ? '▶ Reanudar' : '⏸ Pausar';
   $('btnMode').textContent = live ? 'Volver a modo simulado' : '🔴 Activar dinero REAL';
   $('btnMode').className = 'full' + (live ? '' : ' danger');
@@ -234,6 +246,15 @@ async function refresh() {
   } catch {}
 }
 
+$('btnCopy').onclick = async () => {
+  try { await navigator.clipboard.writeText(S.wallet); $('btnCopy').textContent = '✓ Copiada'; }
+  catch { prompt('Copia la dirección:', S.wallet); }
+  setTimeout(() => ($('btnCopy').textContent = 'Copiar dirección'), 2000);
+};
+$('btnWithdraw').onclick = () => {
+  const c = prompt(`Se enviará TODO el SOL de la wallet del bot a tu Phantom:\n${S.withdrawAddress}\n\nAntes pulsa "Vender todo" si hay posiciones abiertas.\nEscribe RETIRAR para confirmar:`);
+  if (c) api('/api/withdraw', { confirm: c.trim().toUpperCase() });
+};
 $('btnPause').onclick = () => api(S.paused ? '/api/resume' : '/api/pause');
 $('btnSellAll').onclick = () => confirm('¿Vender TODAS las posiciones ahora?') && api('/api/sell');
 $('btnMode').onclick = () => {

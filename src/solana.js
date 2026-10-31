@@ -1,4 +1,4 @@
-import { Connection, Keypair, PublicKey, Transaction, LAMPORTS_PER_SOL } from '@solana/web3.js';
+import { Connection, Keypair, PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { createCloseAccountInstruction } from '@solana/spl-token';
 import bs58 from 'bs58';
 import { cfg } from './config.js';
@@ -81,4 +81,19 @@ export async function closeEmptyTokenAccounts(mint) {
   tx.recentBlockhash = (await connection.getLatestBlockhash('confirmed')).blockhash;
   tx.sign(keypair);
   return sendAndConfirm(tx);
+}
+
+// Envía todo el SOL de la wallet del bot a la dirección de retiro (menos la comisión).
+export async function withdrawAll(to) {
+  const fee = 5000n;
+  const balance = await getSolBalance();
+  if (balance <= fee) throw new Error('la wallet del bot está vacía');
+  const tx = new Transaction().add(
+    SystemProgram.transfer({ fromPubkey: keypair.publicKey, toPubkey: new PublicKey(to), lamports: balance - fee }),
+  );
+  tx.feePayer = keypair.publicKey;
+  tx.recentBlockhash = (await connection.getLatestBlockhash('confirmed')).blockhash;
+  tx.sign(keypair);
+  const sig = await sendAndConfirm(tx);
+  return { sig, sol: Number(balance - fee) / 1e9 };
 }

@@ -169,7 +169,7 @@ export async function equityLoop() {
       const cash = await cashSol();
       const posValue = state.positions.reduce((s, p) => s + (p.valueSol ?? p.costSol), 0);
       const usd = (cash + posValue) * solUsd;
-      if (state.startEquityUsd === null) state.startEquityUsd = usd;
+      if (!state.startEquityUsd || state.startEquityUsd < 1) state.startEquityUsd = usd >= 1 ? usd : null;
       state.equityUsd = usd;
       state.solUsd = solUsd;
       state.equity.push({ t: Date.now(), usd: Math.round(usd * 100) / 100 });
@@ -177,7 +177,7 @@ export async function equityLoop() {
       state.peakEquityUsd = Math.max(state.peakEquityUsd, usd);
       const dd = (1 - usd / state.peakEquityUsd) * 100;
       state.maxDrawdownPct = Math.max(state.maxDrawdownPct, dd);
-      if (!state.paused && usd < state.startEquityUsd * (1 - cfg.lossLimitPct / 100)) {
+      if (!state.paused && state.startEquityUsd && usd < state.startEquityUsd * (1 - cfg.lossLimitPct / 100)) {
         state.paused = true;
         state.pauseReason = `límite de pérdida −${cfg.lossLimitPct}%`;
         log('guard', `⛔ capital $${usd.toFixed(2)}: se alcanzó el límite de pérdida. No se compra más.`);
