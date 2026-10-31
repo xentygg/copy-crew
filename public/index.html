@@ -51,6 +51,7 @@
   button.small { padding: 6px 10px; font-size: 12px; }
   .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   .controls .full { grid-column: span 2; }
+  textarea { width: 100%; height: 160px; background: var(--card2); color: var(--text); border: 1px solid var(--line); border-radius: 10px; padding: 10px; font: 12px/1.5 ui-monospace, Menlo, monospace; }
   .log { font: 12px/1.5 ui-monospace, Menlo, monospace; max-height: 320px; overflow-y: auto; }
   .log div { padding: 2px 0; border-bottom: 1px solid #1a1f2b; overflow-wrap: anywhere; }
   .tag { display: inline-block; min-width: 56px; font-weight: 700; }
@@ -119,6 +120,12 @@
       <button class="danger" id="btnSellAll">Vender todo</button>
       <button class="full" id="btnMode">Cambiar modo</button>
     </div>
+  </section>
+
+  <section class="card">
+    <h2>Smart wallets <small id="wCount"></small></h2>
+    <textarea id="wallets" spellcheck="false" autocapitalize="off" placeholder="Una dirección por línea"></textarea>
+    <button class="full" id="btnWallets" style="width:100%;margin-top:8px">Guardar wallets</button>
   </section>
 
   <section class="card">
@@ -238,6 +245,23 @@ document.addEventListener('click', (e) => {
   const id = e.target.dataset?.sell;
   if (id && confirm('¿Vender esta posición?')) api('/api/sell', { id });
 });
+async function loadWallets() {
+  const r = await fetch('/api/wallets');
+  if (!r.ok) return;
+  const { wallets } = await r.json();
+  $('wallets').value = wallets.join('\n');
+  $('wCount').textContent = wallets.length + ' vigiladas';
+}
+$('btnWallets').onclick = async () => {
+  $('btnWallets').textContent = 'Guardando…';
+  const r = await fetch('/api/wallets', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text: $('wallets').value }) });
+  const j = await r.json();
+  $('btnWallets').textContent = 'Guardar wallets';
+  if (!r.ok) return alert(j.error || 'Error');
+  alert(`Guardado: ${j.count} wallets vigiladas`);
+  loadWallets();
+};
+loadWallets();
 refresh();
 setInterval(refresh, 3000);
 </script>

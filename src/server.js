@@ -1,10 +1,12 @@
 import http from 'node:http';
 import fs from 'node:fs';
 import crypto from 'node:crypto';
-import { cfg } from './config.js';
+import { cfg, loadWallets } from './config.js';
 import { state, log } from './state.js';
 import { reasonLabel, forceSell, switchMode } from './crew.js';
 import { keypair } from './solana.js';
+import { setTrackedWallets } from './agents/scout.js';
+import { ensureWebhook } from './helius.js';
 
 const page = () => fs.readFileSync(new URL('../public/index.html', import.meta.url));
 
@@ -91,6 +93,7 @@ export function startServer({ onWebhook }) {
         return res.end(page());
       }
       if (req.method === 'GET' && url.pathname === '/api/state') return json(res, 200, publicState());
+      if (req.method === 'GET' && url.pathname === '/api/wallets') return json(res, 200, { wallets: loadWallets() });
 
       if (req.method === 'POST' && url.pathname.startsWith('/api/')) {
         const body = JSON.parse((await readBody(req)) || '{}');
@@ -109,6 +112,16 @@ export function startServer({ onWebhook }) {
             forceSell(body.id || 'all');
             log('crew', body.id ? 'venta manual pedida' : '🚨 vender TODO pedido desde el panel');
             break;
+          case '/api/wallets': {
+            const list = [...new Set(String(body.text || '').split(/[\s,;]+/).filter((w) => /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(w)))]
+              .filter((w) => w !== keypair.publicKey.toBase58());
+            if (!list.length) return json(res, 400, { error: 'No hay ninguna dirección válida' });
+            fs.writeFileSync('wallets.txt', `# Smart wallets a copiar (una por línea)\n${list.join('\n')}\n`);
+            await ensureWebhook(list);
+            setTrackedWallets(list);
+            log('scout', `lista actualizada: vigilando ${list.length} smart wallets`);
+            return json(res, 200, { ok: true, count: list.length });
+          }
           case '/api/mode':
             if (body.mode === 'live' && body.confirm !== 'REAL') return json(res, 400, { error: 'Escribe REAL para confirmar' });
             await switchMode(body.mode === 'live' ? 'live' : 'watch');

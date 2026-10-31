@@ -58,36 +58,43 @@ Qué buscar:
 
 ## Paso 5: instalar el bot (5 min)
 
-En la consola del servidor, pega estos comandos uno por uno:
+En la consola del servidor **escribe** estos dos comandos (no hace falta pegar nada) y pulsa Enter después de cada uno:
 
 ```bash
 git clone https://github.com/xentygg/copy-crew
 ```
 
 ```bash
-cd copy-crew
+bash copy-crew/install.sh
 ```
 
-```bash
-nano wallets.txt
+Al terminar (1-2 minutos) verás algo así:
+
+```
+  Abre en el móvil:   http://203.0.113.10:3000
+  Código:             482915
 ```
 
-Pega tus wallets (una por línea), guarda con **Ctrl+O, Enter** y sal con **Ctrl+X**. Después:
+## Paso 6: configurar desde el móvil
 
-```bash
-bash install.sh
-```
+1. Abre esa dirección en el navegador del móvil.
+2. Rellena el formulario (aquí sí puedes copiar y pegar):
+   - el **código** de 6 cifras de la consola,
+   - la **API key de Helius**,
+   - la **clave privada** de la wallet del bot,
+   - una **contraseña** para el panel,
+   - la lista de **smart wallets**.
+3. Pulsa **Guardar y arrancar**. A los pocos segundos se abre el panel: entra con tu contraseña (el usuario da igual). Añade la página a la pantalla de inicio.
 
-Te pedirá la API key de Helius, la clave privada del paso 1 y una contraseña para el panel. Al terminar te dará una dirección como `http://203.0.113.10:3000`.
+## Paso 7: arrancar
 
-## Paso 6: arrancar
-
-1. Abre esa dirección en el móvil e introduce la contraseña (el usuario da igual). Añádela a la pantalla de inicio.
-2. El bot arranca en **SIM** (simulado). Déjalo **30 minutos** y comprueba que:
+1. El bot empieza en **SIM** (simulado). Déjalo **30 minutos** y comprueba que:
    - Scout ve compras (el contador sube).
    - Filter y Analyst eliminan tokens con motivos coherentes.
    - Si copia algo, el espejo muestra la wallet a la izquierda y tu copia a la derecha.
-3. Si todo se ve bien, toca **🔴 Activar dinero REAL** y escribe `REAL`.
+2. Si todo se ve bien, toca **🔴 Activar dinero REAL** y escribe `REAL`.
+
+Las smart wallets se cambian cuando quieras desde el propio panel (apartado **Smart wallets → Guardar wallets**).
 
 ## Controles del panel
 
@@ -104,7 +111,7 @@ Ver lo que hace el bot en directo:
 pm2 logs copy-crew
 ```
 
-Reiniciar (después de cambiar `.env` o `wallets.txt`):
+Reiniciar (después de cambiar `.env`):
 
 ```bash
 pm2 restart copy-crew
