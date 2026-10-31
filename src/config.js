@@ -93,15 +93,17 @@ export function checkConfig() {
 
 // Ajustes cambiados desde el panel: se guardan aparte y tienen prioridad sobre .env.
 const SETTINGS_FILE = 'data/settings.json';
+// Combinaciones de posiciones que se eligen desde el panel: nº de posiciones → $ máximo por operación.
+export const POSITION_PRESETS = { 3: 15, 5: 10 };
 const EDITABLE = { confirmWallets: [1, 2, 3], maxOpenPositions: [3, 5], maxTradeUsd: [10, 15] };
 try {
-  for (const [k, v] of Object.entries(JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf8')))) {
+  const saved = JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf8'));
+  for (const [k, v] of Object.entries(saved)) {
     if (EDITABLE[k]?.includes(v)) cfg[k] = v;
   }
+  // El tamaño siempre va con el nº de posiciones elegido (aunque una versión anterior guardara otro).
+  if (POSITION_PRESETS[saved.maxOpenPositions]) cfg.maxTradeUsd = POSITION_PRESETS[saved.maxOpenPositions];
 } catch {}
-
-// Combinaciones de posiciones que se eligen desde el panel.
-export const POSITION_PRESETS = { 3: 15, 5: 10 };
 
 export function saveSetting(key, value) {
   if (!EDITABLE[key]?.includes(value)) throw new Error('valor no permitido');
