@@ -9,7 +9,7 @@
   :root {
     --bg: #0b0d12; --card: #151922; --card2: #1c2130; --line: #262c3b;
     --text: #e8ecf4; --muted: #8a93a6; --green: #2ecc71; --red: #ff5c5c; --amber: #f5a623;
-    --scout: #3b82f6; --filter: #8b5cf6; --analyst: #f59e0b; --guard: #14b8a6; --sniper: #ec4899;
+    --hunter: #22c55e; --scout: #3b82f6; --filter: #8b5cf6; --analyst: #f59e0b; --guard: #14b8a6; --sniper: #ec4899;
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
@@ -132,6 +132,23 @@
   </section>
 
   <section class="card">
+    <h2>Tus resultados por wallet <small>según tus copias</small></h2>
+    <div id="ranking"></div>
+  </section>
+
+  <section class="card">
+    <h2>Hunter <small>busca smart wallets solo</small></h2>
+    <div class="stats" style="margin-top:0">
+      <div class="stat"><b id="hTracked">0</b><span>vigiladas</span></div>
+      <div class="stat"><b id="hAdded">0</b><span>añadidas</span></div>
+      <div class="stat"><b id="hStudied">0</b><span>en estudio</span></div>
+      <div class="stat"><b id="hScans">0</b><span>escaneos</span></div>
+    </div>
+    <div class="muted" id="hInfo" style="margin-top:8px"></div>
+    <div id="hRecent"></div>
+  </section>
+
+  <section class="card">
     <h2>Smart wallets <small id="wCount"></small></h2>
     <textarea id="wallets" spellcheck="false" autocapitalize="off" placeholder="Una dirección por línea"></textarea>
     <button class="full" id="btnWallets" style="width:100%;margin-top:8px">Guardar wallets</button>
@@ -149,7 +166,7 @@ const usd = (n, sign) => n == null ? '—' : (sign && n > 0 ? '+' : n < 0 ? '−
 const short = (a) => a ? a.slice(0, 4) + '…' + a.slice(-4) : '?';
 const ago = (t) => { const s = (Date.now() - t) / 1000; return s < 60 ? Math.round(s) + 's' : s < 3600 ? Math.round(s / 60) + 'm' : (s / 3600).toFixed(1) + 'h'; };
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const colors = { scout: 'var(--scout)', filter: 'var(--filter)', analyst: 'var(--analyst)', guard: 'var(--guard)', sniper: 'var(--sniper)', error: 'var(--red)', crew: 'var(--muted)' };
+const colors = { hunter: 'var(--hunter)', scout: 'var(--scout)', filter: 'var(--filter)', analyst: 'var(--analyst)', guard: 'var(--guard)', sniper: 'var(--sniper)', error: 'var(--red)', crew: 'var(--muted)' };
 let S = null;
 
 async function api(path, body) {
@@ -201,7 +218,7 @@ function render(s) {
   $('aGuard').textContent = '−' + s.plan.sl + '%';
   $('aGuardL').textContent = `stop · ${s.counters.guardSet} fijados`;
   $('aSniper').textContent = s.counters.copied;
-  $('signals').textContent = `${s.counters.signals} señales confirmadas · ${s.counters.skipped} ignoradas por límites · ${st.trades} cerradas (${st.wins} verdes, ${st.trades - st.wins} rojas)`;
+  $('signals').textContent = `${(s.counters.events || 0).toLocaleString()} eventos de Helius · ${s.counters.signals} señales confirmadas · ${s.counters.skipped} ignoradas por límites · ${st.trades} cerradas (${st.wins} verdes, ${st.trades - st.wins} rojas)`;
 
   const maxK = Math.max(1, ...s.kills.map((k) => k.n));
   $('kills').innerHTML = s.kills.length ? s.kills.map((k) => `
@@ -229,6 +246,19 @@ function render(s) {
     </div>`;
   }).join('') : '<div class="empty">Aún no hay operaciones cerradas.</div>';
 
+  $('ranking').innerHTML = s.walletRanking?.length ? s.walletRanking.map((r) => `<div class="trade"><div><a href="https://solscan.io/account/${esc(r.wallet)}" target="_blank">${short(r.wallet)}</a><br><span class="muted">${r.trades} copias · ${r.wins} verdes</span></div><div></div><div class="r"><b class="${r.pnlUsd >= 0 ? 'pos' : 'neg'}">${usd(r.pnlUsd, true)}</b></div></div>`).join('')
+    : '<div class="empty">Aparecerá cuando se cierren las primeras copias.</div>';
+  const h = s.hunter;
+  if (h) {
+    $('hTracked').textContent = `${h.tracked}/${h.max}`;
+    $('hAdded').textContent = h.added;
+    $('hStudied').textContent = h.studied.toLocaleString();
+    $('hScans').textContent = h.scans;
+    $('hInfo').textContent = !h.enabled ? 'Desactivado (HUNTER=false)' :
+      (h.lastScan ? `Último escaneo hace ${ago(h.lastScan)} · ${h.tradesSeen.toLocaleString()} operaciones analizadas · ${h.pending} candidatas esperando hueco` : 'Primer escaneo en marcha…') +
+      (h.lastError ? ` · último fallo: ${h.lastError}` : '');
+    $('hRecent').innerHTML = h.recent.map((a) => `<div class="trade"><div><a href="https://solscan.io/account/${esc(a.wallet)}" target="_blank">${short(a.wallet)}</a><br><span class="muted">añadida hace ${ago(a.at)}</span></div><div></div><div class="r"><b class="pos">+$${a.pnl.toLocaleString()}</b><br><span class="muted">${a.winRate}% · ${a.closed} tokens</span></div></div>`).join('');
+  }
   $('botAddr').textContent = s.wallet;
   $('botBal').textContent = live && s.equityUsd != null ? usd(s.equityUsd) : '';
   $('btnWithdraw').title = s.withdrawAddress;

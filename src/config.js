@@ -49,6 +49,13 @@ export const cfg = {
   maxHoldMs: num('MAX_HOLD_MIN', 120) * 60_000,
   followWalletSells: bool('FOLLOW_WALLET_SELLS', true),
 
+  hunter: bool('HUNTER', true),
+  hunterMaxWallets: num('HUNTER_MAX_WALLETS', 500),
+  hunterMinPnlUsd: num('HUNTER_MIN_PNL_USD', 300),
+  hunterMinTokens: num('HUNTER_MIN_TOKENS', 3),
+  hunterMinWinRate: num('HUNTER_MIN_WINRATE', 50),
+  hunterIntervalMs: num('HUNTER_INTERVAL_MIN', 15) * 60_000,
+
   slippageBps: num('SLIPPAGE_BPS', 1500),
   priorityMaxLamports: num('PRIORITY_MAX_LAMPORTS', 1_000_000),
   jupiterUrl: (env.JUPITER_URL || 'https://lite-api.jup.ag').replace(/\/$/, ''),

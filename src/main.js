@@ -2,6 +2,7 @@ import { cfg, loadWallets } from './config.js';
 import { state, log } from './state.js';
 import { keypair } from './solana.js';
 import { ingest, setTrackedWallets } from './agents/scout.js';
+import { hunterLoop } from './hunter-loop.js';
 import { handleSignal, onWalletSell, guardLoop, equityLoop, initMode } from './crew.js';
 import { ensureWebhook } from './helius.js';
 import { startServer } from './server.js';
@@ -24,5 +25,6 @@ log('crew', `modo ${state.mode === 'live' ? 'REAL' : 'observación'} · wallet d
 
 guardLoop();
 equityLoop();
+hunterLoop();
 
 process.on('unhandledRejection', (e) => console.error('unhandledRejection', e));

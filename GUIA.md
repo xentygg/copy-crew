@@ -99,6 +99,19 @@ En el panel verás **"Wallet del bot"** con su dirección. Envía ahí el SOL de
 
 Las smart wallets se cambian cuando quieras desde el propio panel (apartado **Smart wallets → Guardar wallets**).
 
+## Hunter: búsqueda automática de smart wallets
+
+Cada 15 minutos, el Hunter revisa los tokens en tendencia de Solana (datos gratuitos de GeckoTerminal) y estudia quién compra y vende en ellos. Una wallet se añade sola a la lista cuando, en lo observado:
+
+- compró **y** vendió al menos **3 tokens** distintos,
+- ganó en al menos el **50 %** de ellos,
+- suma **$300 o más** de ganancia,
+- y no es un bot (no vende en menos de un minuto ni hace más de 150 operaciones al día).
+
+El tope es de **500 wallets** en total. El panel muestra cuántas lleva añadidas y con qué resultados. Las añadidas por el Hunter aparecen en `wallets.txt` con un comentario `# hunter …`.
+
+En **Tus resultados por wallet** ves cuánto has ganado o perdido copiando cada una: si alguna te hace perder, quítala desde **Smart wallets**.
+
 ## Controles del panel
 
 - **Pausar**: no abre operaciones nuevas, pero sigue gestionando las abiertas.

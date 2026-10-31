@@ -1,12 +1,12 @@
 import http from 'node:http';
 import fs from 'node:fs';
 import crypto from 'node:crypto';
-import { cfg, loadWallets } from './config.js';
+import { cfg } from './config.js';
 import { state, log } from './state.js';
 import { reasonLabel, forceSell, switchMode } from './crew.js';
 import { keypair, withdrawAll, getSolBalance } from './solana.js';
-import { setTrackedWallets } from './agents/scout.js';
-import { ensureWebhook } from './helius.js';
+import { parseWallets, saveWallets, trackedWallets, currentNotes } from './wallets.js';
+import { hunterSummary } from './hunter-loop.js';
 
 const page = () => fs.readFileSync(new URL('../public/index.html', import.meta.url));
 
@@ -56,6 +56,20 @@ function json(res, code, obj) {
   res.end(JSON.stringify(obj));
 }
 
+// Resultado de tus copias agrupado por la smart wallet que las originó.
+function walletRanking(closed) {
+  const by = {};
+  for (const t of closed) {
+    for (const src of t.sources || []) {
+      const r = (by[src.wallet] ||= { wallet: src.wallet, trades: 0, wins: 0, pnlUsd: 0 });
+      r.trades++;
+      if (t.pnlUsd > 0) r.wins++;
+      r.pnlUsd += t.pnlUsd / t.sources.length;
+    }
+  }
+  return Object.values(by).sort((a, b) => b.pnlUsd - a.pnlUsd);
+}
+
 function publicState() {
   const closed = state.closed;
   const wins = closed.filter((t) => t.pnlSol > 0).length;
@@ -87,6 +101,8 @@ function publicState() {
     closed: closed.slice(0, 60),
     equity: state.equity.filter((_, i, arr) => arr.length < 300 || i % Math.ceil(arr.length / 300) === 0 || i === arr.length - 1),
     log: state.log.slice(0, 80),
+    hunter: hunterSummary(),
+    walletRanking: walletRanking(state.closed),
   };
 }
 
@@ -100,6 +116,7 @@ export function startServer({ onWebhook }) {
         const body = await readBody(req);
         json(res, 200, { ok: true });
         const txs = JSON.parse(body);
+        state.counters.events = (state.counters.events || 0) + (Array.isArray(txs) ? txs.length : 1);
         for (const tx of Array.isArray(txs) ? txs : [txs]) onWebhook(tx);
         return;
       }
@@ -132,7 +149,7 @@ export function startServer({ onWebhook }) {
         return res.end(page());
       }
       if (req.method === 'GET' && url.pathname === '/api/state') return json(res, 200, publicState());
-      if (req.method === 'GET' && url.pathname === '/api/wallets') return json(res, 200, { wallets: loadWallets() });
+      if (req.method === 'GET' && url.pathname === '/api/wallets') return json(res, 200, { wallets: trackedWallets() });
 
       if (req.method === 'POST' && url.pathname.startsWith('/api/')) {
         const body = JSON.parse((await readBody(req)) || '{}');
@@ -152,12 +169,9 @@ export function startServer({ onWebhook }) {
             log('crew', body.id ? 'venta manual pedida' : '🚨 vender TODO pedido desde el panel');
             break;
           case '/api/wallets': {
-            const list = [...new Set(String(body.text || '').split(/[\s,;]+/).filter((w) => /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(w)))]
-              .filter((w) => w !== keypair.publicKey.toBase58());
+            const list = parseWallets(body.text || '');
             if (!list.length) return json(res, 400, { error: 'No hay ninguna dirección válida' });
-            fs.writeFileSync('wallets.txt', `# Smart wallets a copiar (una por línea)\n${list.join('\n')}\n`);
-            await ensureWebhook(list);
-            setTrackedWallets(list);
+            await saveWallets(list, currentNotes());
             log('scout', `lista actualizada: vigilando ${list.length} smart wallets`);
             return json(res, 200, { ok: true, count: list.length });
           }
