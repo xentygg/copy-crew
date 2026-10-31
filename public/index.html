@@ -49,6 +49,7 @@
   button { font: inherit; font-weight: 700; border: 0; border-radius: 12px; padding: 12px; color: var(--text); background: var(--card2); cursor: pointer; }
   button.danger { background: #3a1015; color: var(--red); }
   button.small { padding: 6px 10px; font-size: 12px; }
+  button.on { background: var(--scout); color: #fff; }
   .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   .controls .full { grid-column: span 2; }
   textarea { width: 100%; height: 160px; background: var(--card2); color: var(--text); border: 1px solid var(--line); border-radius: 10px; padding: 10px; font: 12px/1.5 ui-monospace, Menlo, monospace; }
@@ -104,6 +105,10 @@
       <div class="agent" style="border-color:var(--sniper)"><div class="name">Sniper</div><div class="n" id="aSniper">0</div><div class="l">copiadas</div></div>
     </div>
     <div class="muted" style="margin-top:8px" id="signals"></div>
+    <div class="row" style="margin-top:10px;gap:6px">
+      <span class="muted" style="flex:1">Wallets que deben comprar el mismo token:</span>
+      <button class="small" data-confirm="1">1</button><button class="small" data-confirm="2">2</button><button class="small" data-confirm="3">3</button>
+    </div>
   </section>
 
   <section class="card">
@@ -248,6 +253,7 @@ function render(s) {
 
   $('ranking').innerHTML = s.walletRanking?.length ? s.walletRanking.map((r) => `<div class="trade"><div><a href="https://solscan.io/account/${esc(r.wallet)}" target="_blank">${short(r.wallet)}</a><br><span class="muted">${r.trades} copias · ${r.wins} verdes</span></div><div></div><div class="r"><b class="${r.pnlUsd >= 0 ? 'pos' : 'neg'}">${usd(r.pnlUsd, true)}</b></div></div>`).join('')
     : '<div class="empty">Aparecerá cuando se cierren las primeras copias.</div>';
+  document.querySelectorAll('[data-confirm]').forEach((b) => b.classList.toggle('on', Number(b.dataset.confirm) === s.confirmWallets));
   const h = s.hunter;
   if (h) {
     $('hTracked').textContent = `${h.tracked}/${h.max}`;
@@ -293,6 +299,8 @@ $('btnMode').onclick = () => {
   if (c) api('/api/mode', { mode: 'live', confirm: c.trim().toUpperCase() });
 };
 document.addEventListener('click', (e) => {
+  const n = e.target.dataset?.confirm;
+  if (n) return api('/api/confirm', { n: Number(n) });
   const id = e.target.dataset?.sell;
   if (id && confirm('¿Vender esta posición?')) api('/api/sell', { id });
 });

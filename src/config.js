@@ -90,3 +90,23 @@ export function checkConfig() {
   if (!cfg.withdrawAddress) missing.push('WITHDRAW_ADDRESS');
   return missing;
 }
+
+// Ajustes cambiados desde el panel: se guardan aparte y tienen prioridad sobre .env.
+const SETTINGS_FILE = 'data/settings.json';
+const EDITABLE = { confirmWallets: [1, 2, 3] };
+try {
+  for (const [k, v] of Object.entries(JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf8')))) {
+    if (EDITABLE[k]?.includes(v)) cfg[k] = v;
+  }
+} catch {}
+
+export function saveSetting(key, value) {
+  if (!EDITABLE[key]?.includes(value)) throw new Error('valor no permitido');
+  cfg[key] = value;
+  let all = {};
+  try {
+    all = JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf8'));
+  } catch {}
+  all[key] = value;
+  fs.writeFileSync(SETTINGS_FILE, JSON.stringify(all));
+}

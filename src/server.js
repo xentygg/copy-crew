@@ -1,7 +1,7 @@
 import http from 'node:http';
 import fs from 'node:fs';
 import crypto from 'node:crypto';
-import { cfg } from './config.js';
+import { cfg, saveSetting } from './config.js';
 import { state, log } from './state.js';
 import { reasonLabel, forceSell, switchMode } from './crew.js';
 import { keypair, withdrawAll, getSolBalance } from './solana.js';
@@ -97,6 +97,7 @@ function publicState() {
       maxDrawdownPct: state.maxDrawdownPct,
     },
     plan: { sl: cfg.stopLossPct, tp: cfg.takeProfitPct },
+    confirmWallets: cfg.confirmWallets,
     positions: state.positions,
     closed: closed.slice(0, 60),
     equity: state.equity.filter((_, i, arr) => arr.length < 300 || i % Math.ceil(arr.length / 300) === 0 || i === arr.length - 1),
@@ -174,6 +175,12 @@ export function startServer({ onWebhook }) {
             await saveWallets(list, currentNotes());
             log('scout', `lista actualizada: vigilando ${list.length} smart wallets`);
             return json(res, 200, { ok: true, count: list.length });
+          }
+          case '/api/confirm': {
+            const n = Number(body.n);
+            saveSetting('confirmWallets', n);
+            log('scout', `confirmación cambiada: ${n === 1 ? 'basta 1 smart wallet' : `${n} smart wallets deben comprar el mismo token`}`);
+            break;
           }
           case '/api/withdraw': {
             if (body.confirm !== 'RETIRAR') return json(res, 400, { error: 'Escribe RETIRAR para confirmar' });
