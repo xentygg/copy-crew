@@ -61,7 +61,7 @@ Qué buscar:
 En la consola del servidor, pega estos comandos uno por uno:
 
 ```bash
-git clone <URL_DE_TU_REPO> copy-crew
+git clone https://github.com/xentygg/copy-crew
 ```
 
 ```bash
