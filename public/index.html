@@ -49,6 +49,7 @@
   button { font: inherit; font-weight: 700; border: 0; border-radius: 12px; padding: 12px; color: var(--text); background: var(--card2); cursor: pointer; }
   button.danger { background: #3a1015; color: var(--red); }
   button.small { padding: 6px 10px; font-size: 12px; }
+  button.pick { width: 46px; height: 46px; padding: 0; font-size: 18px; }
   button.on { background: var(--scout); color: #fff; }
   .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   .controls .full { grid-column: span 2; }
@@ -107,7 +108,7 @@
     <div class="muted" style="margin-top:8px" id="signals"></div>
     <div class="row" style="margin-top:10px;gap:6px">
       <span class="muted" style="flex:1">Wallets que deben comprar el mismo token:</span>
-      <button class="small" data-confirm="1">1</button><button class="small" data-confirm="2">2</button><button class="small" data-confirm="3">3</button>
+      <button class="pick" data-confirm="1">1</button><button class="pick" data-confirm="2">2</button><button class="pick" data-confirm="3">3</button>
     </div>
   </section>
 
