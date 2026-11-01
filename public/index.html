@@ -144,6 +144,7 @@
       <button class="danger" id="btnSellAll">Vender todo</button>
       <button class="full" id="btnMode">Cambiar modo</button>
       <button class="full" id="btnWithdraw">💸 Retirar todo a mi Phantom</button>
+      <button class="full" id="btnReset">🔄 Reiniciar estadísticas</button>
     </div>
   </section>
 
@@ -302,6 +303,7 @@ $('btnCopy').onclick = async () => {
   catch { prompt('Copia la dirección:', S.wallet); }
   setTimeout(() => ($('btnCopy').textContent = 'Copiar dirección'), 2000);
 };
+$('btnReset').onclick = () => confirm('¿Borrar el historial (acierto, operaciones cerradas, motivos) y empezar a medir de cero?\n\nNo se tocan las posiciones abiertas, los ajustes, las wallets ni el Hunter.') && api('/api/reset-stats');
 $('btnWithdraw').onclick = () => {
   const c = prompt(`Se enviará TODO el SOL de la wallet del bot a tu Phantom:\n${S.withdrawAddress}\n\nAntes pulsa "Vender todo" si hay posiciones abiertas.\nEscribe RETIRAR para confirmar:`);
   if (c) api('/api/withdraw', { confirm: c.trim().toUpperCase() });

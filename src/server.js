@@ -2,7 +2,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import crypto from 'node:crypto';
 import { cfg, saveSetting, POSITION_PRESETS } from './config.js';
-import { state, log } from './state.js';
+import { state, log, resetStats } from './state.js';
 import { reasonLabel, forceSell, switchMode, isVetoed } from './crew.js';
 import { keypair, withdrawAll, getSolBalance } from './solana.js';
 import { parseWallets, saveWallets, trackedWallets, currentNotes } from './wallets.js';
@@ -191,6 +191,10 @@ export function startServer({ onWebhook }) {
             log('scout', `confirmación cambiada: ${n === 1 ? 'basta 1 smart wallet' : `${n} smart wallets deben comprar el mismo token`}`);
             break;
           }
+          case '/api/reset-stats':
+            resetStats();
+            log('crew', '🔄 estadísticas reiniciadas: desde ahora se mide solo la estrategia actual');
+            break;
           case '/api/quality': {
             const q = body.q === 'strict' ? 'strict' : 'normal';
             saveSetting('quality', q);

@@ -40,6 +40,25 @@ export function resetForMode(mode) {
   save();
 }
 
+// Empieza a medir de cero sin tocar posiciones abiertas, ajustes, wallets ni el Hunter.
+export function resetStats() {
+  const archive = `data/history-${state.mode}-${state.startedAt}-reset.json`;
+  fs.writeFileSync(archive, JSON.stringify(state));
+  const f = fresh(state.mode);
+  Object.assign(state, {
+    startedAt: Date.now(),
+    counters: f.counters,
+    killReasons: {},
+    killDetails: {},
+    closed: [],
+    equity: [],
+    startEquityUsd: null,
+    peakEquityUsd: 0,
+    maxDrawdownPct: 0,
+  });
+  save();
+}
+
 let timer = null;
 export function save() {
   clearTimeout(timer);
