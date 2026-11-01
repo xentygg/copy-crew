@@ -218,6 +218,11 @@ export function startServer({ onWebhook }) {
             log('crew', `estrategia ${body.id === 'team' ? 'Equipo' : body.id === 'top10' ? `Top ${cfg.topN}` : 'Patrones'}: ${body.on ? 'ACTIVADA' : 'desactivada'}`);
             break;
           }
+          case '/api/pattern-mode': {
+            saveSetting('patternRequireProof', body.proof === true);
+            log('chartist', body.proof ? `solo se operan patrones con ≥ ${cfg.patternMinWinRate}% de acierto comprobado` : 'se operan todos los patrones clásicos');
+            break;
+          }
           case '/api/pattern-winrate': {
             saveSetting('patternMinWinRate', Number(body.n));
             log('chartist', `solo se operan patrones con ≥ ${cfg.patternMinWinRate}% de acierto`);

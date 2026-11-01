@@ -31,7 +31,8 @@ test('resultado: gana si toca +TP antes que −SL', () => {
   assert.equal(outcome(loss, 30, { tpPct: 15, slPct: 8, horizon: 12 }).win, false);
 });
 
-test('aprende sin duplicar y solo opera patrones probados', () => {
+test('modo comprobados: aprende sin duplicar y solo opera patrones probados', () => {
+  cfg.patternRequireProof = true;
   book.stats = {};
   book.cursor = {};
   const now = Date.now();
@@ -57,4 +58,55 @@ test('aprende sin duplicar y solo opera patrones probados', () => {
   assert.equal(patternStatus('ruptura').status, 'descartado');
   cfg.patternMinWinRate = 60;
   book.stats = {};
+  cfg.patternRequireProof = false;
+});
+
+test('modo clásico: opera el patrón aunque no tenga historial', () => {
+  book.stats = {};
+  const now = Date.now();
+  const live = toCandles(series(now), now);
+  assert.ok(liveSignals(live, now).includes('ruptura'));
+  assert.equal(patternStatus('ruptura').status, 'clasico');
+});
+
+// Velas a medida: [open, high, low, close, volume]
+function custom(rows, now = Date.now()) {
+  let t = Math.floor(now / 1000) - 300 * (rows.length + 1);
+  const list = rows.map(([o, h, l, c, v]) => [(t += 300), o, h, l, c, v]);
+  list.push([(t += 300), 1, 1, 1, 1, 1]);
+  return toCandles(list.reverse(), now);
+}
+const flat = (n, p = 1) => Array.from({ length: n }, () => [p, p * 1.01, p * 0.99, p, 100]);
+
+test('bandera alcista', () => {
+  const rows = [
+    ...flat(16),
+    [1, 1.06, 1, 1.05, 300], [1.05, 1.11, 1.04, 1.1, 300], [1.1, 1.16, 1.09, 1.15, 300], [1.15, 1.21, 1.14, 1.2, 300], [1.2, 1.26, 1.19, 1.25, 300], // mástil +25 %
+    [1.25, 1.26, 1.2, 1.22, 80], [1.22, 1.24, 1.19, 1.21, 70], [1.21, 1.23, 1.18, 1.2, 60], // bandera con poco volumen
+    [1.2, 1.3, 1.2, 1.29, 200], // ruptura
+  ];
+  const c = custom(rows);
+  assert.ok(detect(c, c.c.length - 1).includes('bandera'));
+});
+
+test('doble suelo', () => {
+  const rows = [
+    ...flat(6),
+    [1, 1, 0.9, 0.91, 100], [0.91, 0.93, 0.9, 0.92, 100], // primer suelo ~0.90
+    [0.92, 1.0, 0.92, 0.99, 100], [0.99, 1.0, 0.95, 0.96, 100], [0.96, 0.97, 0.94, 0.95, 100], // rebote (cuello 1.00)
+    [0.95, 0.96, 0.905, 0.91, 100], [0.91, 0.94, 0.905, 0.93, 100], // segundo suelo ~0.905
+    [0.93, 0.97, 0.92, 0.96, 100], [0.96, 0.99, 0.95, 0.98, 100], [0.98, 0.995, 0.96, 0.97, 100],
+    [0.97, 0.99, 0.96, 0.98, 100], [0.98, 0.99, 0.97, 0.985, 100], [0.985, 0.99, 0.97, 0.98, 100], [0.98, 0.99, 0.97, 0.98, 100],
+    [0.98, 1.05, 0.98, 1.04, 150], // rompe el cuello
+  ];
+  const c = custom(rows);
+  assert.ok(detect(c, c.c.length - 1).includes('doble_suelo'));
+});
+
+test('cruce de medias', () => {
+  const down = Array.from({ length: 25 }, (_, k) => { const p = 1.3 - k * 0.012; return [p, p * 1.005, p * 0.99, p * 0.995, 100]; });
+  const up = Array.from({ length: 12 }, (_, k) => { const p = 1.0 + k * 0.012; return [p, p * 1.015, p * 0.998, p * 1.01, 100]; });
+  const c = custom([...down, ...up]);
+  const crosses = c.c.map((_, i) => (i >= 20 ? detect(c, i).includes('cruce_ema') : false));
+  assert.equal(crosses.filter(Boolean).length, 1); // cruza una sola vez
 });

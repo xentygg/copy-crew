@@ -1,5 +1,5 @@
-// CHARTIST — analiza gráficos de velas de 5 min, aprende qué patrones suelen acabar en subida
-// y solo da señal de compra con los patrones que ya lo han demostrado con datos.
+// CHARTIST — analiza gráficos de velas de 5 min y da señal cuando aparece un patrón alcista clásico.
+// Además lleva la cuenta de cómo acaba cada patrón, para ver en el panel cuáles funcionan en memecoins.
 import fs from 'node:fs';
 import { cfg } from '../config.js';
 import { GT, geckoGet } from '../gecko.js';
@@ -15,6 +15,9 @@ export const PATTERNS = {
   suelos: 'Suelos crecientes',
   rsi: 'Rebote desde sobreventa (RSI)',
   compresion: 'Compresión y ruptura',
+  bandera: 'Bandera alcista',
+  doble_suelo: 'Doble suelo',
+  cruce_ema: 'Cruce de medias (EMA 9 / 21)',
 };
 
 function fresh() {
@@ -93,6 +96,36 @@ export function detect(c, i) {
   const recent = range(i - 6, i);
   const before = avg([range(i - 20, i - 14), range(i - 14, i - 8)]);
   if (green && recent < 0.6 * before && c.c[i] > Math.max(...c.h.slice(i - 6, i))) found.push('compresion');
+
+  // Bandera alcista: subida fuerte (mástil), unas velas de descanso con menos volumen y ruptura del descanso.
+  for (const flag of [3, 4, 5]) {
+    const poleEnd = i - flag; // última vela del mástil
+    const poleStart = poleEnd - 4;
+    if (poleStart < 0) continue;
+    const pole = c.c[poleEnd] / c.o[poleStart] - 1;
+    const flagHigh = Math.max(...c.h.slice(poleEnd + 1, i));
+    const flagLow = Math.min(...c.l.slice(poleEnd + 1, i));
+    const holds = flagLow > c.c[poleEnd] - (c.c[poleEnd] - c.o[poleStart]) * 0.5; // no devuelve más de la mitad
+    const quiet = avg(c.v.slice(poleEnd + 1, i)) < avg(c.v.slice(poleStart, poleEnd + 1));
+    if (green && pole > 0.15 && holds && quiet && c.c[i] > flagHigh) {
+      found.push('bandera');
+      break;
+    }
+  }
+
+  // Doble suelo: dos mínimos parecidos (±3 %) separados por un rebote, y ruptura del rebote.
+  const win = 20;
+  const lows = c.l.slice(i - win, i);
+  const a = lows.indexOf(Math.min(...lows.slice(0, win / 2)));
+  const b = win / 2 + lows.slice(win / 2).indexOf(Math.min(...lows.slice(win / 2)));
+  if (b - a >= 5) {
+    const neck = Math.max(...c.h.slice(i - win + a + 1, i - win + b));
+    const similar = Math.abs(lows[a] - lows[b]) / lows[a] < 0.03;
+    if (green && similar && neck > lows[a] * 1.05 && c.c[i] > neck) found.push('doble_suelo');
+  }
+
+  // Cruce de medias: la EMA 9 cruza por encima de la EMA 21.
+  if (c.ema9[i - 1] <= c.ema21[i - 1] && c.ema9[i] > c.ema21[i] && green) found.push('cruce_ema');
   return found;
 }
 
@@ -127,7 +160,9 @@ export function toCandles(ohlcvList, now = Date.now()) {
     c.c.push(cl);
     c.v.push(v);
   }
+  c.ema9 = ema(c.c, 9);
   c.ema20 = ema(c.c, 20);
+  c.ema21 = ema(c.c, 21);
   c.rsi = rsi(c.c);
   return c;
 }
@@ -160,6 +195,8 @@ export function patternStatus(p) {
   const avgRet = s.n ? s.sumRet / s.n : 0;
   let status = 'aprendiendo';
   if (s.n >= cfg.patternMinSamples) status = winRate >= cfg.patternMinWinRate && avgRet > 0 ? 'activo' : 'descartado';
+  // Modo clásico: se operan todos; la estadística solo informa.
+  if (!cfg.patternRequireProof) status = 'clasico';
   return { id: p, name: PATTERNS[p], n: s.n, winRate, avgRet, status };
 }
 
@@ -172,5 +209,5 @@ export async function fetchCandles(poolAddress, get = geckoGet) {
 export function liveSignals(c, now = Date.now()) {
   const i = c.c.length - 1;
   if (i < 20 || now - c.t[i] > 2 * CANDLE_MS) return [];
-  return detect(c, i).filter((p) => patternStatus(p).status === 'activo');
+  return detect(c, i).filter((p) => ['activo', 'clasico'].includes(patternStatus(p).status));
 }

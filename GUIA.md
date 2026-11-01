@@ -104,7 +104,7 @@ Las smart wallets se cambian cuando quieras desde el propio panel (apartado **Sm
 | Estrategia | Qué hace |
 |---|---|
 | **Top 10 directo** | Cada 15 min el Hunter elige las 10 mejores wallets de las últimas 24 h (completa con tu lista si faltan). Cuando una compra, el bot compra al instante, **sin Filter ni Analyst**. Guard sí pone stop, venta parcial y sale cuando la wallet vende. |
-| **Patrones de gráfico** | Chartist analiza cada 5 min los gráficos de velas de 5 min de los tokens en tendencia. Primero **aprende**: mira qué pasó después de cada patrón (¿subió +15 % antes de bajar −8 %?). Solo opera un patrón cuando lleva ≥ 30 casos y ≥ 60 % (o 70 %) de acierto. Salidas: +15 % / −8 %, máximo 1 hora. |
+| **Patrones de gráfico** | Chartist analiza **cada 3 min** los gráficos de velas de 5 min de los tokens en tendencia y opera cuando aparece uno de **9 patrones alcistas clásicos**: ruptura con volumen, volumen explosivo, rebote en la EMA 20, suelos crecientes, rebote RSI, compresión, bandera alcista, doble suelo y cruce de medias. Lleva además la estadística de cada patrón; con **"Solo comprobados"** opera únicamente los que demuestren ≥ 60 % o 70 % de acierto. Salidas: +15 % / −8 %, máximo 1 hora. |
 | **Equipo (5 agentes)** | La estrategia original: todas las wallets, con confirmación, Filter y Analyst. |
 
 Con **Equipo** apagado, Helius solo vigila las 10 wallets del Top: se gastan muchos menos créditos. Cada estrategia tiene sus propias estadísticas en el panel.

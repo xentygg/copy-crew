@@ -9,6 +9,7 @@ import { sleep } from './http.js';
 
 export async function chartistLoop() {
   await sleep(90_000); // después de que arranquen el resto de agentes
+  const signaled = new Map(); // pool → vela ya señalada (no repetir la misma señal en el siguiente análisis)
   for (;;) {
     try {
       const pools = (await trendingPools()).slice(0, 25);
@@ -19,9 +20,11 @@ export async function chartistLoop() {
           const c = await fetchCandles(pool.address);
           learned += learn(pool.address, c);
           const signals = liveSignals(c);
-          if (signals.length) {
+          const candle = c.t[c.t.length - 1];
+          if (signals.length && signaled.get(pool.address) !== candle) {
+            signaled.set(pool.address, candle);
             seen++;
-            log('chartist', `📈 ${pool.name}: ${signals.map((p) => PATTERNS[p]).join(' + ')} (patrón con historial probado)`);
+            log('chartist', `📈 ${pool.name}: ${signals.map((p) => PATTERNS[p]).join(' + ')}`);
             handlePattern(pool, signals).catch((e) => log('error', `patrones: ${e.message}`));
           }
         } catch (e) {
@@ -31,8 +34,7 @@ export async function chartistLoop() {
       book.scans++;
       book.lastScan = Date.now();
       persist();
-      const active = Object.keys(PATTERNS).filter((p) => patternStatus(p).status === 'activo').length;
-      log('chartist', `analizó ${pools.length} gráficos · ${learned} casos nuevos aprendidos · ${active} patrones activos${seen ? ` · ${seen} señales` : ''}`);
+      log('chartist', `analizó ${pools.length} gráficos · ${seen} señales · ${learned} casos nuevos en la estadística`);
     } catch (e) {
       book.lastError = e.message;
       log('error', `chartist: ${e.message}`);
@@ -48,6 +50,8 @@ export function chartistSummary() {
     lastError: book.lastError,
     minSamples: cfg.patternMinSamples,
     minWinRate: cfg.patternMinWinRate,
+    requireProof: cfg.patternRequireProof,
+    intervalMin: Math.round(cfg.patternIntervalMs / 60_000),
     tp: cfg.patternTpPct,
     sl: cfg.patternSlPct,
     patterns: Object.keys(PATTERNS).map(patternStatus).sort((a, b) => b.winRate - a.winRate),

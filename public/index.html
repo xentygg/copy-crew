@@ -107,7 +107,11 @@
     <div class="muted" id="pHelp" style="margin-bottom:6px"></div>
     <div id="patterns"></div>
     <div class="row" style="margin-top:10px;gap:6px">
-      <span class="muted" style="flex:1">Operar patrones con acierto de al menos:</span>
+      <span class="muted" style="flex:1">Qué patrones operar:</span>
+      <button class="pick wide" data-pmode="classic">Todos</button><button class="pick wide" data-pmode="proof">Solo comprobados</button>
+    </div>
+    <div class="row" id="pwrRow" style="margin-top:10px;gap:6px">
+      <span class="muted" style="flex:1">Acierto mínimo comprobado:</span>
       <button class="pick wide" data-pwr="60">60%</button><button class="pick wide" data-pwr="70">70%</button>
     </div>
   </section>
@@ -304,8 +308,13 @@ function render(s) {
   const ch = s.chartist;
   if (ch) {
     $('pInfo').textContent = ch.lastScan ? `${ch.scans} análisis · hace ${ago(ch.lastScan)}` : 'primer análisis en marcha…';
-    $('pHelp').textContent = `Un patrón se opera cuando lleva ≥ ${ch.minSamples} casos y ≥ ${ch.minWinRate}% de acierto (gana = +${ch.tp}% antes que −${ch.sl}% en 1 h).` + (ch.lastError ? ` Último fallo: ${ch.lastError}` : '');
-    const badge = { activo: '<b class="pos">activo</b>', descartado: '<b class="neg">descartado</b>', aprendiendo: '<span class="muted">aprendiendo</span>' };
+    $('pHelp').textContent = (ch.requireProof
+      ? `Solo se opera un patrón cuando lleva ≥ ${ch.minSamples} casos y ≥ ${ch.minWinRate}% de acierto.`
+      : `Se operan todos los patrones clásicos. Analiza cada ${ch.intervalMin} min.`) +
+      ` El % es cuántas veces subió +${ch.tp}% antes de bajar −${ch.sl}% (en 1 h) en lo que ha visto.` + (ch.lastError ? ` Último fallo: ${ch.lastError}` : '');
+    const badge = { clasico: '<b class="pos">opera</b>', activo: '<b class="pos">opera</b>', descartado: '<b class="neg">no opera</b>', aprendiendo: '<span class="muted">aprendiendo</span>' };
+    document.querySelectorAll('[data-pmode]').forEach((b) => b.classList.toggle('on', (b.dataset.pmode === 'proof') === ch.requireProof));
+    $('pwrRow').style.display = ch.requireProof ? '' : 'none';
     $('patterns').innerHTML = ch.patterns.map((p) => `<div class="trade"><div><b>${esc(p.name)}</b><br><span class="muted">${p.n} casos</span></div><div></div><div class="r">${p.n ? p.winRate.toFixed(0) + '% · ' + (p.avgRet >= 0 ? '+' : '') + p.avgRet.toFixed(1) + '%' : '—'}<br>${badge[p.status]}</div></div>`).join('');
     document.querySelectorAll('[data-pwr]').forEach((b) => b.classList.toggle('on', Number(b.dataset.pwr) === ch.minWinRate));
   }
@@ -359,6 +368,8 @@ document.addEventListener('click', (e) => {
   if (n) return api('/api/confirm', { n: Number(n) });
   const sid = e.target.dataset?.strat;
   if (sid) return api('/api/strategy', { id: sid, on: e.target.dataset.on === '1' });
+  const pm = e.target.dataset?.pmode;
+  if (pm) return api('/api/pattern-mode', { proof: pm === 'proof' });
   const pwr = e.target.dataset?.pwr;
   if (pwr) return api('/api/pattern-winrate', { n: Number(pwr) });
   const nf = e.target.dataset?.follow;

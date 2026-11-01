@@ -65,7 +65,8 @@ export const cfg = {
   patternHoldCandles: num('PATTERN_HOLD_CANDLES', 12), // 12 velas de 5 min = 1 hora
   patternMinSamples: num('PATTERN_MIN_SAMPLES', 30),
   patternMinWinRate: num('PATTERN_MIN_WINRATE', 60),
-  patternIntervalMs: num('PATTERN_INTERVAL_MIN', 5) * 60_000,
+  patternIntervalMs: num('PATTERN_INTERVAL_MIN', 3) * 60_000,
+  patternRequireProof: bool('PATTERN_REQUIRE_PROOF', false), // false = opera todos los patrones clásicos
 
   hunter: bool('HUNTER', true),
   hunterMaxWallets: num('HUNTER_MAX_WALLETS', 500),
@@ -113,7 +114,7 @@ export function checkConfig() {
 const SETTINGS_FILE = 'data/settings.json';
 // Combinaciones de posiciones que se eligen desde el panel: nº de posiciones → $ máximo por operación.
 export const POSITION_PRESETS = { 3: 15, 5: 10 };
-const EDITABLE = { confirmWallets: [1, 2, 3], maxOpenPositions: [3, 5], maxTradeUsd: [10, 15], quality: ['normal', 'strict'], followWalletSells: [true, false], stratTeam: [true, false], stratTop10: [true, false], stratPatterns: [true, false], patternMinWinRate: [60, 70] };
+const EDITABLE = { confirmWallets: [1, 2, 3], maxOpenPositions: [3, 5], maxTradeUsd: [10, 15], quality: ['normal', 'strict'], followWalletSells: [true, false], stratTeam: [true, false], stratTop10: [true, false], stratPatterns: [true, false], patternMinWinRate: [60, 70], patternRequireProof: [true, false] };
 try {
   const saved = JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf8'));
   for (const [k, v] of Object.entries(saved)) {
