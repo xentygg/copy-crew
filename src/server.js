@@ -105,6 +105,7 @@ function publicState() {
     maxOpenPositions: cfg.maxOpenPositions,
     maxTradeUsd: cfg.maxTradeUsd,
     quality: cfg.quality,
+    followWalletSells: cfg.followWalletSells,
     rugcheckError: lastRugcheckError,
     jupiter: jupStats,
     positions: state.positions,
@@ -195,6 +196,12 @@ export function startServer({ onWebhook }) {
             resetStats();
             log('crew', '🔄 estadísticas reiniciadas: desde ahora se mide solo la estrategia actual');
             break;
+          case '/api/follow': {
+            const on = body.on === true;
+            saveSetting('followWalletSells', on);
+            log('guard', on ? 'se siguen las ventas de las smart wallets' : 'se IGNORAN las ventas de las smart wallets: Guard decide la salida');
+            break;
+          }
           case '/api/quality': {
             const q = body.q === 'strict' ? 'strict' : 'normal';
             saveSetting('quality', q);

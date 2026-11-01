@@ -58,3 +58,16 @@ test('filtro de impulso y modo estricto', async () => {
     cfg.quality = 'normal';
   }
 });
+
+test('con "vender cuando la wallet vende = No", Guard ignora las ventas de la wallet', () => {
+  const W = 'Src22222222222222222222222222222222222222222';
+  state.positions = [{ id: 'p', mint: 'M', symbol: 'T', sources: [{ wallet: W, tokens: 1000, soldTokens: 0 }] }];
+  cfg.followWalletSells = false;
+  try {
+    onWalletSell({ wallet: W, mint: 'M', tokens: 1000 });
+    assert.equal(state.positions[0].forceExit, undefined);
+  } finally {
+    cfg.followWalletSells = true;
+    state.positions = [];
+  }
+});

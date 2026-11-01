@@ -101,7 +101,7 @@ export function checkConfig() {
 const SETTINGS_FILE = 'data/settings.json';
 // Combinaciones de posiciones que se eligen desde el panel: nº de posiciones → $ máximo por operación.
 export const POSITION_PRESETS = { 3: 15, 5: 10 };
-const EDITABLE = { confirmWallets: [1, 2, 3], maxOpenPositions: [3, 5], maxTradeUsd: [10, 15], quality: ['normal', 'strict'] };
+const EDITABLE = { confirmWallets: [1, 2, 3], maxOpenPositions: [3, 5], maxTradeUsd: [10, 15], quality: ['normal', 'strict'], followWalletSells: [true, false] };
 try {
   const saved = JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf8'));
   for (const [k, v] of Object.entries(saved)) {

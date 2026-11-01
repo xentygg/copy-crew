@@ -8,6 +8,8 @@ const GT = 'https://api.geckoterminal.com/api/v2';
 const GT_HEADERS = { accept: 'application/json;version=20230302' };
 const FILE = 'data/hunter.json';
 const DAY = 24 * 3600_000;
+// Quien suele vender antes de 5 minutos es un operador rápido: imposible copiarle a tiempo.
+const QUICK_FLIP_MS = 5 * 60_000;
 
 function fresh() {
   return { wallets: {}, poolCursor: {}, added: {}, scans: 0, poolsAnalyzed: 0, tradesSeen: 0, lastScan: null, lastError: null };
@@ -91,7 +93,7 @@ export function walletStats(w) {
     pnl += p;
     closed++;
     if (p > 0) wins++;
-    if (tk.firstBuy && tk.lastSell && tk.lastSell - tk.firstBuy < 60_000) quickFlips++;
+    if (tk.firstBuy && tk.lastSell && tk.lastSell - tk.firstBuy < QUICK_FLIP_MS) quickFlips++;
   }
   const days = Math.max(1, (w.lastSeen - w.firstSeen) / DAY);
   return {

@@ -119,6 +119,10 @@
       <span class="muted" style="flex:1">Calidad de los tokens:</span>
       <button class="pick wide" data-quality="normal">Normal</button><button class="pick wide" data-quality="strict">Estricta</button>
     </div>
+    <div class="row" style="margin-top:10px;gap:6px">
+      <span class="muted" style="flex:1">Vender cuando la wallet vende:</span>
+      <button class="pick wide" data-follow="1">Sí</button><button class="pick wide" data-follow="0">No</button>
+    </div>
   </section>
 
   <section class="card">
@@ -268,6 +272,7 @@ function render(s) {
   $('ranking').innerHTML = s.walletRanking?.length ? s.walletRanking.map((r) => `<div class="trade"><div><a href="https://solscan.io/account/${esc(r.wallet)}" target="_blank">${short(r.wallet)}</a><br><span class="muted">${r.trades} copias · ${r.wins} verdes${r.vetoed ? ' · <b class="neg">vetada</b>' : ''}</span></div><div></div><div class="r"><b class="${r.pnlUsd >= 0 ? 'pos' : 'neg'}">${usd(r.pnlUsd, true)}</b></div></div>`).join('')
     : '<div class="empty">Aparecerá cuando se cierren las primeras copias.</div>';
   document.querySelectorAll('[data-confirm]').forEach((b) => b.classList.toggle('on', Number(b.dataset.confirm) === s.confirmWallets));
+  document.querySelectorAll('[data-follow]').forEach((b) => b.classList.toggle('on', (b.dataset.follow === '1') === s.followWalletSells));
   document.querySelectorAll('[data-quality]').forEach((b) => b.classList.toggle('on', b.dataset.quality === s.quality));
   document.querySelectorAll('[data-positions]').forEach((b) => b.classList.toggle('on', Number(b.dataset.positions) === s.maxOpenPositions));
   const h = s.hunter;
@@ -318,6 +323,8 @@ $('btnMode').onclick = () => {
 document.addEventListener('click', (e) => {
   const n = e.target.dataset?.confirm;
   if (n) return api('/api/confirm', { n: Number(n) });
+  const nf = e.target.dataset?.follow;
+  if (nf) return api('/api/follow', { on: nf === '1' });
   const nq = e.target.dataset?.quality;
   if (nq) return api('/api/quality', { q: nq });
   const np = e.target.dataset?.positions;
