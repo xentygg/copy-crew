@@ -2,10 +2,8 @@
 // Usa la API gratuita de GeckoTerminal: pools en tendencia + sus últimas operaciones.
 import fs from 'node:fs';
 import { cfg, QUOTE_MINTS } from '../config.js';
-import { fetchJson, sleep } from '../http.js';
+import { GT, geckoGet } from '../gecko.js';
 
-const GT = 'https://api.geckoterminal.com/api/v2';
-const GT_HEADERS = { accept: 'application/json;version=20230302' };
 const FILE = 'data/hunter.json';
 const DAY = 24 * 3600_000;
 // Quien suele vender antes de 5 minutos es un operador rápido: imposible copiarle a tiempo.
@@ -31,7 +29,7 @@ function persist() {
 const mintOf = (rel) => (rel?.data?.id || '').replace(/^solana_/, '');
 
 // Pools de memecoins con liquidez suficiente, de las listas de tendencia.
-export async function trendingPools(get = (u) => fetchJson(u, { headers: GT_HEADERS, timeoutMs: 15_000 })) {
+export async function trendingPools(get = geckoGet) {
   const urls = [
     `${GT}/networks/solana/trending_pools?duration=1h&page=1`,
     `${GT}/networks/solana/trending_pools?duration=6h&page=1`,
@@ -41,7 +39,6 @@ export async function trendingPools(get = (u) => fetchJson(u, { headers: GT_HEAD
   const pools = new Map();
   for (const u of urls) {
     const res = await get(u);
-    await sleep(2500);
     for (const p of res?.data || []) {
       const a = p.attributes || {};
       const base = mintOf(p.relationships?.base_token);
@@ -117,6 +114,16 @@ export function qualifies(s) {
   );
 }
 
+// Las mejores wallets "del momento": califican y han operado en las últimas 24 h.
+export function topWallets(n, exclude = () => false, now = Date.now()) {
+  return Object.entries(hunt.wallets)
+    .filter(([, w]) => now - w.lastSeen < DAY)
+    .map(([wallet, w]) => ({ wallet, ...walletStats(w) }))
+    .filter((c) => qualifies(c) && !exclude(c.wallet))
+    .sort((a, b) => b.pnl * b.winRate - a.pnl * a.winRate)
+    .slice(0, n);
+}
+
 export function candidates(tracked = new Set()) {
   return Object.entries(hunt.wallets)
     .map(([wallet, w]) => ({ wallet, ...walletStats(w) }))
@@ -132,7 +139,7 @@ function prune(now = Date.now()) {
   for (const [pool, c] of Object.entries(hunt.poolCursor)) if (now - c > 3 * DAY) delete hunt.poolCursor[pool];
 }
 
-export async function scanOnce({ log, get = (u) => fetchJson(u, { headers: GT_HEADERS, timeoutMs: 15_000 }) }) {
+export async function scanOnce({ log, get = geckoGet }) {
   const pools = await trendingPools(get);
   let trades = 0;
   for (const pool of pools.slice(0, 30)) {
@@ -151,7 +158,6 @@ export async function scanOnce({ log, get = (u) => fetchJson(u, { headers: GT_HE
     } catch (e) {
       hunt.lastError = `${pool.name}: ${e.message}`;
     }
-    await sleep(2500); // límite gratuito de GeckoTerminal: 30 peticiones/min
   }
   hunt.tradesSeen += trades;
   hunt.scans++;

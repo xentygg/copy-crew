@@ -29,6 +29,11 @@ export function sizeTrade(buys, solUsd, { cash, investedSol }) {
   return sol;
 }
 
+// Tamaño fijo (estrategia de patrones): el máximo por operación, dentro de los mismos límites.
+export function sizeFixed(solUsd, opts) {
+  return sizeTrade([{ sol: Infinity }], solUsd, opts);
+}
+
 export function buy(mint, amountSol, preQuote) {
   return exclusive(async () => {
     const lamports = BigInt(Math.floor(amountSol * 1e9));

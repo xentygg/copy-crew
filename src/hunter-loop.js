@@ -2,7 +2,7 @@
 import { cfg } from './config.js';
 import { log } from './state.js';
 import { hunt, scanOnce, pickNew, recordAdded, candidates } from './agents/hunter.js';
-import { saveWallets, trackedWallets, currentNotes } from './wallets.js';
+import { saveWallets, trackedWallets, currentNotes, computeTop, syncWebhook, topSummary } from './wallets.js';
 import { short } from './agents/scout.js';
 import { sleep } from './http.js';
 
@@ -22,6 +22,10 @@ export async function hunterLoop() {
         recordAdded(picks);
         const best = picks[0];
         log('hunter', `➕ ${picks.length} smart wallets nuevas (mejor: ${short(best.wallet)} +$${Math.round(best.pnl)}, ${Math.round(best.winRate)}% acierto) · total ${list.length}`);
+      }
+      if (computeTop()) {
+        await syncWebhook();
+        log('top10', `Top ${cfg.topN} actualizado: ${topSummary().map((t) => t.label).join(', ')}`);
       }
     } catch (e) {
       hunt.lastError = e.message;
@@ -48,5 +52,6 @@ export function hunterSummary() {
       .slice(0, 10)
       .map(([wallet, a]) => ({ wallet, ...a })),
     pending: candidates(tracked).length,
+    top: topSummary(),
   };
 }

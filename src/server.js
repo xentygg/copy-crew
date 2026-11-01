@@ -5,8 +5,9 @@ import { cfg, saveSetting, POSITION_PRESETS } from './config.js';
 import { state, log, resetStats } from './state.js';
 import { reasonLabel, forceSell, switchMode, isVetoed } from './crew.js';
 import { keypair, withdrawAll, getSolBalance } from './solana.js';
-import { parseWallets, saveWallets, trackedWallets, currentNotes } from './wallets.js';
+import { parseWallets, saveWallets, trackedWallets, currentNotes, syncWebhook } from './wallets.js';
 import { hunterSummary } from './hunter-loop.js';
+import { chartistSummary } from './chartist-loop.js';
 import { lastRugcheckError } from './agents/filter.js';
 import { jupStats } from './jupiter.js';
 
@@ -74,6 +75,17 @@ function walletRanking(closed) {
     .sort((a, b) => b.pnlUsd - a.pnlUsd);
 }
 
+// Resultados por estrategia, para comparar cuál funciona.
+function strategyStats(closed) {
+  const out = {};
+  for (const id of ['top10', 'patrones', 'equipo']) {
+    const ts = closed.filter((t) => (t.strategy || 'equipo') === id);
+    const wins = ts.filter((t) => t.pnlUsd > 0).length;
+    out[id] = { trades: ts.length, wins, winRate: ts.length ? (wins / ts.length) * 100 : null, pnlUsd: ts.reduce((s, t) => s + t.pnlUsd, 0) };
+  }
+  return out;
+}
+
 function publicState() {
   const closed = state.closed;
   const wins = closed.filter((t) => t.pnlSol > 0).length;
@@ -114,6 +126,8 @@ function publicState() {
     log: state.log.slice(0, 80),
     hunter: hunterSummary(),
     walletRanking: walletRanking(state.closed),
+    chartist: chartistSummary(),
+    strategies: { team: cfg.stratTeam, top10: cfg.stratTop10, patterns: cfg.stratPatterns, topN: cfg.topN, stats: strategyStats(state.closed) },
   };
 }
 
@@ -196,6 +210,19 @@ export function startServer({ onWebhook }) {
             resetStats();
             log('crew', '🔄 estadísticas reiniciadas: desde ahora se mide solo la estrategia actual');
             break;
+          case '/api/strategy': {
+            const key = { team: 'stratTeam', top10: 'stratTop10', patterns: 'stratPatterns' }[body.id];
+            if (!key) return json(res, 400, { error: 'estrategia desconocida' });
+            saveSetting(key, body.on === true);
+            await syncWebhook();
+            log('crew', `estrategia ${body.id === 'team' ? 'Equipo' : body.id === 'top10' ? `Top ${cfg.topN}` : 'Patrones'}: ${body.on ? 'ACTIVADA' : 'desactivada'}`);
+            break;
+          }
+          case '/api/pattern-winrate': {
+            saveSetting('patternMinWinRate', Number(body.n));
+            log('chartist', `solo se operan patrones con ≥ ${cfg.patternMinWinRate}% de acierto`);
+            break;
+          }
           case '/api/follow': {
             const on = body.on === true;
             saveSetting('followWalletSells', on);

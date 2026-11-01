@@ -14,6 +14,19 @@ export function makePlan() {
   };
 }
 
+// Plan de la estrategia de patrones: el mismo con el que Chartist mide si un patrón funciona.
+export function patternPlan() {
+  return {
+    stopLossPct: cfg.patternSlPct,
+    takeProfitPct: cfg.patternTpPct,
+    trailActivatePct: 1e9, // sin trailing (no usar Infinity: no se puede guardar en JSON)
+    trailPct: 0,
+    maxHoldMs: cfg.patternHoldCandles * 5 * 60_000,
+    partialTpPct: 0,
+    partialTpFraction: 0,
+  };
+}
+
 // Decide si hay que salir. Devuelve el motivo o null.
 export function exitReason(pos, pnlPct, now = Date.now()) {
   const p = pos.plan;

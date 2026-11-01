@@ -55,6 +55,18 @@ export const cfg = {
   walletVeto: bool('WALLET_VETO', true),
   quality: 'normal',
 
+  // Estrategias (se activan desde el panel)
+  stratTeam: bool('STRAT_TEAM', false), // copiar a todas las wallets con los 5 agentes
+  stratTop10: bool('STRAT_TOP10', true), // copiar al instante a las 10 mejores wallets del momento
+  stratPatterns: bool('STRAT_PATTERNS', true), // operar patrones de gráfico aprendidos
+  topN: num('TOP_N', 10),
+  patternTpPct: num('PATTERN_TP_PCT', 15),
+  patternSlPct: num('PATTERN_SL_PCT', 8),
+  patternHoldCandles: num('PATTERN_HOLD_CANDLES', 12), // 12 velas de 5 min = 1 hora
+  patternMinSamples: num('PATTERN_MIN_SAMPLES', 30),
+  patternMinWinRate: num('PATTERN_MIN_WINRATE', 60),
+  patternIntervalMs: num('PATTERN_INTERVAL_MIN', 5) * 60_000,
+
   hunter: bool('HUNTER', true),
   hunterMaxWallets: num('HUNTER_MAX_WALLETS', 500),
   hunterMinPnlUsd: num('HUNTER_MIN_PNL_USD', 300),
@@ -101,7 +113,7 @@ export function checkConfig() {
 const SETTINGS_FILE = 'data/settings.json';
 // Combinaciones de posiciones que se eligen desde el panel: nº de posiciones → $ máximo por operación.
 export const POSITION_PRESETS = { 3: 15, 5: 10 };
-const EDITABLE = { confirmWallets: [1, 2, 3], maxOpenPositions: [3, 5], maxTradeUsd: [10, 15], quality: ['normal', 'strict'], followWalletSells: [true, false] };
+const EDITABLE = { confirmWallets: [1, 2, 3], maxOpenPositions: [3, 5], maxTradeUsd: [10, 15], quality: ['normal', 'strict'], followWalletSells: [true, false], stratTeam: [true, false], stratTop10: [true, false], stratPatterns: [true, false], patternMinWinRate: [60, 70] };
 try {
   const saved = JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf8'));
   for (const [k, v] of Object.entries(saved)) {

@@ -99,6 +99,16 @@ En el panel verás **"Wallet del bot"** con su dirección. Envía ahí el SOL de
 
 Las smart wallets se cambian cuando quieras desde el propio panel (apartado **Smart wallets → Guardar wallets**).
 
+## Estrategias (se activan en el panel)
+
+| Estrategia | Qué hace |
+|---|---|
+| **Top 10 directo** | Cada 15 min el Hunter elige las 10 mejores wallets de las últimas 24 h (completa con tu lista si faltan). Cuando una compra, el bot compra al instante, **sin Filter ni Analyst**. Guard sí pone stop, venta parcial y sale cuando la wallet vende. |
+| **Patrones de gráfico** | Chartist analiza cada 5 min los gráficos de velas de 5 min de los tokens en tendencia. Primero **aprende**: mira qué pasó después de cada patrón (¿subió +15 % antes de bajar −8 %?). Solo opera un patrón cuando lleva ≥ 30 casos y ≥ 60 % (o 70 %) de acierto. Salidas: +15 % / −8 %, máximo 1 hora. |
+| **Equipo (5 agentes)** | La estrategia original: todas las wallets, con confirmación, Filter y Analyst. |
+
+Con **Equipo** apagado, Helius solo vigila las 10 wallets del Top: se gastan muchos menos créditos. Cada estrategia tiene sus propias estadísticas en el panel.
+
 ## Cómo decide el bot (resumen)
 
 - **Filter** además exige **impulso**: que el token suba en la última hora y que en los últimos 5 minutos haya más compras que ventas.

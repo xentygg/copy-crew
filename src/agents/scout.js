@@ -3,6 +3,7 @@ import { cfg, QUOTE_MINTS, SOL_MINT } from '../config.js';
 import { state, save, log } from '../state.js';
 
 let tracked = new Set();
+let direct = new Set(); // Top 10: se copian al instante, sin confirmación ni filtros
 const pending = new Map(); // mint -> Map(wallet -> buy)
 const recentSells = new Map(); // `${wallet}:${mint}` -> timestamp
 const decided = new Map(); // mint -> timestamp (no reevaluar el mismo token durante un rato)
@@ -10,6 +11,10 @@ const DECIDED_TTL = 30 * 60_000;
 
 export function setTrackedWallets(list) {
   tracked = new Set(list);
+}
+
+export function setDirectWallets(list) {
+  direct = new Set(list);
 }
 
 // Convierte una transacción "enhanced" de Helius en compras/ventas de las wallets vigiladas.
@@ -62,7 +67,7 @@ export function markDecided(mint) {
 
 // onSignal(mint, buys) se llama cuando se alcanza la confirmación.
 // onWalletSell(swap) se llama con cada venta (para que Guard siga a la wallet).
-export function ingest(tx, { onSignal, onWalletSell }) {
+export function ingest(tx, { onSignal, onWalletSell, onDirect }) {
   for (const s of parseSwaps(tx)) {
     if (s.side === 'sell') {
       recentSells.set(`${s.wallet}:${s.mint}`, s.t);
@@ -72,6 +77,13 @@ export function ingest(tx, { onSignal, onWalletSell }) {
     if (s.sol < cfg.minWalletBuySol) continue;
     state.counters.seen++;
     save();
+
+    if (direct.has(s.wallet)) {
+      log('top10', `${short(s.wallet)} (Top ${cfg.topN}) compró ${s.sol.toFixed(2)} SOL de ${short(s.mint)} → copia directa`);
+      onDirect?.(s.mint, s);
+      continue;
+    }
+    if (!cfg.stratTeam) continue;
 
     const d = decided.get(s.mint);
     if (d && Date.now() - d < DECIDED_TTL) continue;

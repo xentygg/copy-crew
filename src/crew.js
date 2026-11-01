@@ -2,10 +2,12 @@
 import { cfg } from './config.js';
 import { state, save, log, kill, resetForMode } from './state.js';
 import { short } from './agents/scout.js';
-import { runFilter, REASONS as FILTER_REASONS } from './agents/filter.js';
+import { runFilter, dexInfo, REASONS as FILTER_REASONS } from './agents/filter.js';
 import { runAnalyst, REASONS as ANALYST_REASONS } from './agents/analyst.js';
-import { makePlan, exitReason, valuePosition, wantsPartial } from './agents/guard.js';
-import { sizeTrade, buy, sell, sellPart, cashSol, isPaper } from './agents/sniper.js';
+import { makePlan, patternPlan, exitReason, valuePosition, wantsPartial } from './agents/guard.js';
+import { sizeTrade, sizeFixed, buy, sell, sellPart, cashSol, isPaper } from './agents/sniper.js';
+import { getMintInfo } from './solana.js';
+import { PATTERNS } from './agents/chartist.js';
 import { solPriceUsd } from './jupiter.js';
 import { sleep } from './http.js';
 
@@ -76,31 +78,96 @@ export async function handleSignal(mint, buys) {
     log('guard', `${f.ctx.symbol}: stop −${plan.stopLossPct}%, vende ${Math.round(plan.partialTpFraction * 100)}% en +${plan.partialTpPct}%, TP +${plan.takeProfitPct}%, trailing ${plan.trailPct}% tras +${plan.trailActivatePct}%`);
 
     // SNIPER
-    const r = await buy(mint, amountSol, a.quote);
-    const pos = {
-      id: `${mint}-${Date.now()}`,
-      mint,
-      symbol: f.ctx.symbol,
-      paper: isPaper(),
-      openedAt: Date.now(),
-      plan,
-      tokensRaw: r.tokensRaw,
-      costSol: r.costSol,
-      rentSol: r.rentSol,
-      solUsdAtOpen: solUsd,
-      buySig: r.sig,
-      sources: buys.map((b) => ({ wallet: b.wallet, sol: b.sol, tokens: b.tokens, soldTokens: 0, sig: b.sig, t: b.t })),
-      valueSol: r.costSol,
-      pnlPct: 0,
-      peakPnlPct: 0,
-      sellFails: 0,
-    };
-    state.positions.push(pos);
-    state.counters.copied++;
-    save();
-    log('sniper', `${pos.paper ? '[SIM] ' : ''}copió ${pos.symbol}: ${r.costSol.toFixed(3)} SOL (~$${(r.costSol * solUsd).toFixed(2)}) ${r.sig}`);
+    await openPosition({ strategy: 'equipo', mint, symbol: f.ctx.symbol, amountSol, preQuote: a.quote, plan, solUsd, buys });
   } catch (e) {
     log('error', `${short(mint)}: ${e.message}`);
+  } finally {
+    inFlight.delete(mint);
+  }
+}
+
+const sourcesOf = (buys) => buys.map((b) => ({ wallet: b.wallet, sol: b.sol, tokens: b.tokens, soldTokens: 0, sig: b.sig, t: b.t }));
+
+async function openPosition({ strategy, mint, symbol, amountSol, preQuote, plan, solUsd, buys = [], pattern }) {
+  const r = await buy(mint, amountSol, preQuote);
+  const pos = {
+    id: `${mint}-${Date.now()}`,
+    strategy,
+    pattern,
+    mint,
+    symbol,
+    paper: isPaper(),
+    openedAt: Date.now(),
+    plan,
+    tokensRaw: r.tokensRaw,
+    costSol: r.costSol,
+    rentSol: r.rentSol,
+    solUsdAtOpen: solUsd,
+    buySig: r.sig,
+    sources: sourcesOf(buys),
+    valueSol: r.costSol,
+    pnlPct: 0,
+    peakPnlPct: 0,
+    sellFails: 0,
+  };
+  state.positions.push(pos);
+  state.counters.copied++;
+  save();
+  const why = strategy === 'patrones' ? `patrón ${pattern}` : strategy === 'top10' ? 'Top 10' : 'equipo 5/5';
+  log('sniper', `${pos.paper ? '[SIM] ' : ''}compró ${symbol} (${why}): ${r.costSol.toFixed(3)} SOL (~$${(r.costSol * solUsd).toFixed(2)}) ${r.sig}`);
+  return pos;
+}
+
+function canOpen(mint) {
+  if (inFlight.has(mint) || state.positions.some((p) => p.mint === mint)) return 'ya en curso';
+  if (state.paused) return `en pausa (${state.pauseReason || 'manual'})`;
+  if (state.positions.length >= cfg.maxOpenPositions) return 'máximo de posiciones abiertas';
+  return null;
+}
+
+// TOP 10 — copia directa: sin Filter ni Analyst. Guard sí pone su plan de salida.
+export async function handleDirect(mint, b) {
+  if (!cfg.stratTop10) return;
+  const no = canOpen(mint);
+  if (no) return no === 'ya en curso' ? undefined : skip(mint, no);
+  inFlight.add(mint);
+  try {
+    const solUsd = await solPriceUsd();
+    const amountSol = sizeTrade([b], solUsd, { cash: await cashSol(), investedSol: investedSol() });
+    if (!amountSol) return skip(mint, 'sin saldo suficiente o límite de gasto alcanzado');
+    let symbol = short(mint);
+    try {
+      symbol = (await dexInfo(mint)).symbol || symbol;
+    } catch {}
+    const plan = makePlan();
+    state.counters.guardSet++;
+    await openPosition({ strategy: 'top10', mint, symbol, amountSol, plan, solUsd, buys: [b] });
+  } catch (e) {
+    log('error', `Top 10 ${short(mint)}: ${e.message}`);
+  } finally {
+    inFlight.delete(mint);
+  }
+}
+
+// PATRONES — Chartist vio un patrón con historial probado. Comprobación mínima: mint y freeze revocados.
+export async function handlePattern(pool, patterns) {
+  if (!cfg.stratPatterns) return;
+  const mint = pool.mint;
+  const no = canOpen(mint);
+  if (no) return no === 'ya en curso' ? undefined : skip(mint, no);
+  inFlight.add(mint);
+  try {
+    const info = await getMintInfo(mint);
+    if (info.mintAuthority || info.freezeAuthority) return log('chartist', `✗ ${pool.name}: patrón visto pero mint/freeze sin revocar`);
+    const solUsd = await solPriceUsd();
+    const amountSol = sizeFixed(solUsd, { cash: await cashSol(), investedSol: investedSol() });
+    if (!amountSol) return skip(mint, 'sin saldo suficiente o límite de gasto alcanzado');
+    const pattern = patterns.map((p) => PATTERNS[p] || p).join(' + ');
+    const plan = patternPlan();
+    state.counters.guardSet++;
+    await openPosition({ strategy: 'patrones', mint, symbol: (pool.name || short(mint)).split(' / ')[0], amountSol, plan, solUsd, pattern });
+  } catch (e) {
+    log('error', `patrones ${pool.name}: ${e.message}`);
   } finally {
     inFlight.delete(mint);
   }

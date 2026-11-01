@@ -98,6 +98,21 @@
   </section>
 
   <section class="card">
+    <h2>Estrategias <small>activa las que quieras</small></h2>
+    <div id="strats"></div>
+  </section>
+
+  <section class="card">
+    <h2>Patrones de gráfico <small id="pInfo"></small></h2>
+    <div class="muted" id="pHelp" style="margin-bottom:6px"></div>
+    <div id="patterns"></div>
+    <div class="row" style="margin-top:10px;gap:6px">
+      <span class="muted" style="flex:1">Operar patrones con acierto de al menos:</span>
+      <button class="pick wide" data-pwr="60">60%</button><button class="pick wide" data-pwr="70">70%</button>
+    </div>
+  </section>
+
+  <section class="card">
     <h2>El equipo <small>una copia = 5/5 aprobados</small></h2>
     <div class="crew">
       <div class="agent" style="border-color:var(--scout)"><div class="name">Scout</div><div class="n" id="aScout">0</div><div class="l">vistas</div></div>
@@ -252,20 +267,20 @@ function render(s) {
   $('openCount').textContent = s.positions.length ? s.positions.length + ' abiertas' : '';
   $('positions').innerHTML = s.positions.length ? s.positions.map((p) => `
     <div class="trade">
-      <div><span class="sym">${esc(p.symbol)}</span>${p.paper ? ' <span class="muted">SIM</span>' : ''}<br><span class="muted">${(p.costSol).toFixed(3)} SOL · ${ago(p.openedAt)}${p.partialTaken ? ' · <b class="pos">mitad vendida</b>' : ''}</span></div>
+      <div><span class="sym">${esc(p.symbol)}</span>${p.paper ? ' <span class="muted">SIM</span>' : ''}<br><span class="muted">${{ top10: 'Top 10', patrones: 'Patrón', equipo: 'Equipo' }[p.strategy || 'equipo']} · ${(p.costSol).toFixed(3)} SOL · ${ago(p.openedAt)}${p.partialTaken ? ' · <b class="pos">mitad vendida</b>' : ''}</span></div>
       <div class="${p.pnlPct >= 0 ? 'pos' : 'neg'}" style="font-weight:800">${p.pnlPct >= 0 ? '+' : ''}${p.pnlPct.toFixed(1)}%</div>
       <div class="r">${p.forceExit ? `<span class="muted">vendiendo…</span>` : `<button class="small danger" data-sell="${esc(p.id)}">Vender</button>`}</div>
-    </div>`).join('') : '<div class="empty">Ninguna. Sniper espera un 5/5.</div>';
+    </div>`).join('') : '<div class="empty">Ninguna por ahora.</div>';
 
   $('mirror').innerHTML = s.closed.length ? s.closed.map((t) => {
     const src = t.sources[0];
     const pct = t.sources.length ? ((t.costSol / (t.sources.reduce((a, b) => a + b.sol, 0) / t.sources.length)) * 100).toFixed(0) : '?';
     return `<div class="trade">
       <div><span class="sym">${esc(t.symbol)}</span>${t.paper ? ' <span class="muted">SIM</span>' : ''}<br>
-        <span class="muted"><a href="https://solscan.io/account/${esc(src?.wallet)}" target="_blank">${short(src?.wallet)}</a> ${src ? src.sol.toFixed(2) : '?'} SOL${t.sources.length > 1 ? ` +${t.sources.length - 1}` : ''}</span></div>
+        <span class="muted">${src ? `<a href="https://solscan.io/account/${esc(src.wallet)}" target="_blank">${short(src.wallet)}</a> ${src.sol.toFixed(2)} SOL${t.sources.length > 1 ? ` +${t.sources.length - 1}` : ''}${t.strategy === 'top10' ? ' · Top 10' : ''}` : `📈 ${esc(t.pattern || 'patrón')}`}</span></div>
       <div class="arrow">→</div>
       <div class="r"><b class="${t.pnlUsd >= 0 ? 'pos' : 'neg'}">${usd(t.pnlUsd, true)}</b><br>
-        <span class="muted">${t.costSol.toFixed(3)} SOL (${pct}%) · ${esc(t.exitReason)}</span></div>
+        <span class="muted">${t.costSol.toFixed(3)} SOL${src ? ` (${pct}%)` : ''} · ${esc(t.exitReason)}</span></div>
     </div>`;
   }).join('') : '<div class="empty">Aún no hay operaciones cerradas.</div>';
 
@@ -275,6 +290,25 @@ function render(s) {
   document.querySelectorAll('[data-follow]').forEach((b) => b.classList.toggle('on', (b.dataset.follow === '1') === s.followWalletSells));
   document.querySelectorAll('[data-quality]').forEach((b) => b.classList.toggle('on', b.dataset.quality === s.quality));
   document.querySelectorAll('[data-positions]').forEach((b) => b.classList.toggle('on', Number(b.dataset.positions) === s.maxOpenPositions));
+  const strat = s.strategies;
+  if (strat) {
+    const names = { top10: `Top ${strat.topN} directo`, patterns: 'Patrones de gráfico', team: 'Equipo (5 agentes)' };
+    const statKey = { top10: 'top10', patterns: 'patrones', team: 'equipo' };
+    const help = { top10: 'Copia al instante a las mejores wallets del momento, sin filtros', patterns: 'Opera los patrones que el bot ha comprobado que funcionan', team: 'Todas las wallets, con Filter y Analyst' };
+    $('strats').innerHTML = ['top10', 'patterns', 'team'].map((id) => {
+      const r = strat.stats[statKey[id]];
+      return `<div class="trade"><div><b>${names[id]}</b><br><span class="muted">${help[id]}<br>${r.trades} cerradas · ${r.winRate == null ? '—' : r.winRate.toFixed(0) + '% acierto'} · <span class="${r.pnlUsd >= 0 ? 'pos' : 'neg'}">${usd(r.pnlUsd, true)}</span></span></div><div></div>
+        <div class="r"><button class="pick wide ${strat[id] ? 'on' : ''}" data-strat="${id}" data-on="${strat[id] ? 0 : 1}">${strat[id] ? 'Activa' : 'Apagada'}</button></div></div>`;
+    }).join('');
+  }
+  const ch = s.chartist;
+  if (ch) {
+    $('pInfo').textContent = ch.lastScan ? `${ch.scans} análisis · hace ${ago(ch.lastScan)}` : 'primer análisis en marcha…';
+    $('pHelp').textContent = `Un patrón se opera cuando lleva ≥ ${ch.minSamples} casos y ≥ ${ch.minWinRate}% de acierto (gana = +${ch.tp}% antes que −${ch.sl}% en 1 h).` + (ch.lastError ? ` Último fallo: ${ch.lastError}` : '');
+    const badge = { activo: '<b class="pos">activo</b>', descartado: '<b class="neg">descartado</b>', aprendiendo: '<span class="muted">aprendiendo</span>' };
+    $('patterns').innerHTML = ch.patterns.map((p) => `<div class="trade"><div><b>${esc(p.name)}</b><br><span class="muted">${p.n} casos</span></div><div></div><div class="r">${p.n ? p.winRate.toFixed(0) + '% · ' + (p.avgRet >= 0 ? '+' : '') + p.avgRet.toFixed(1) + '%' : '—'}<br>${badge[p.status]}</div></div>`).join('');
+    document.querySelectorAll('[data-pwr]').forEach((b) => b.classList.toggle('on', Number(b.dataset.pwr) === ch.minWinRate));
+  }
   const h = s.hunter;
   if (h) {
     $('hTracked').textContent = `${h.tracked}/${h.max}`;
@@ -284,7 +318,7 @@ function render(s) {
     $('hInfo').textContent = !h.enabled ? 'Desactivado (HUNTER=false)' :
       (h.lastScan ? `Último escaneo hace ${ago(h.lastScan)} · ${h.tradesSeen.toLocaleString()} operaciones analizadas · ${h.pending} candidatas esperando hueco` : 'Primer escaneo en marcha…') +
       (h.lastError ? ` · último fallo: ${h.lastError}` : '');
-    $('hRecent').innerHTML = h.recent.map((a) => `<div class="trade"><div><a href="https://solscan.io/account/${esc(a.wallet)}" target="_blank">${short(a.wallet)}</a><br><span class="muted">añadida hace ${ago(a.at)}</span></div><div></div><div class="r"><b class="pos">+$${a.pnl.toLocaleString()}</b><br><span class="muted">${a.winRate}% · ${a.closed} tokens</span></div></div>`).join('');
+    $('hRecent').innerHTML = (h.top?.length ? `<div class="muted" style="margin:8px 0 2px">Top ${h.top.length} actual (se copian al instante):</div>` + h.top.map((t, i) => `<div class="row" style="padding:3px 0;font-size:13px"><span class="muted" style="width:22px">${i + 1}.</span><a href="https://solscan.io/account/${esc(t.wallet)}" target="_blank">${esc(t.label)}</a><span class="muted" style="margin-left:auto">${t.source === 'hunter' ? `+$${t.pnl} · ${t.winRate}%` : 'de tu lista'}</span></div>`).join('') + '<div class="muted" style="margin:10px 0 2px">Añadidas recientemente:</div>' : '') + h.recent.map((a) => `<div class="trade"><div><a href="https://solscan.io/account/${esc(a.wallet)}" target="_blank">${short(a.wallet)}</a><br><span class="muted">añadida hace ${ago(a.at)}</span></div><div></div><div class="r"><b class="pos">+$${a.pnl.toLocaleString()}</b><br><span class="muted">${a.winRate}% · ${a.closed} tokens</span></div></div>`).join('');
   }
   $('botAddr').textContent = s.wallet;
   $('botBal').textContent = live && s.equityUsd != null ? usd(s.equityUsd) : '';
@@ -323,6 +357,10 @@ $('btnMode').onclick = () => {
 document.addEventListener('click', (e) => {
   const n = e.target.dataset?.confirm;
   if (n) return api('/api/confirm', { n: Number(n) });
+  const sid = e.target.dataset?.strat;
+  if (sid) return api('/api/strategy', { id: sid, on: e.target.dataset.on === '1' });
+  const pwr = e.target.dataset?.pwr;
+  if (pwr) return api('/api/pattern-winrate', { n: Number(pwr) });
   const nf = e.target.dataset?.follow;
   if (nf) return api('/api/follow', { on: nf === '1' });
   const nq = e.target.dataset?.quality;
