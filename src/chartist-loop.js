@@ -12,7 +12,7 @@ export async function chartistLoop() {
   const signaled = new Map(); // pool → vela ya señalada (no repetir la misma señal en el siguiente análisis)
   for (;;) {
     try {
-      const pools = (await trendingPools()).slice(0, 25);
+      const pools = (await trendingPools()).slice(0, 20);
       let learned = 0;
       let seen = 0;
       for (const pool of pools) {

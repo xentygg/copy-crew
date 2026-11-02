@@ -29,7 +29,11 @@ function persist() {
 const mintOf = (rel) => (rel?.data?.id || '').replace(/^solana_/, '');
 
 // Pools de memecoins con liquidez suficiente, de las listas de tendencia.
+// La lista de tendencias se reutiliza 10 minutos (la usan Hunter y Chartist).
+let trendingCache = { at: 0, pools: [] };
+
 export async function trendingPools(get = geckoGet) {
+  if (get === geckoGet && Date.now() - trendingCache.at < 10 * 60_000 && trendingCache.pools.length) return trendingCache.pools;
   const urls = [
     `${GT}/networks/solana/trending_pools?duration=1h&page=1`,
     `${GT}/networks/solana/trending_pools?duration=6h&page=1`,
@@ -48,7 +52,9 @@ export async function trendingPools(get = geckoGet) {
       pools.set(a.address, { address: a.address, mint: base, name: a.name, change24h: Number(a.price_change_percentage?.h24 || 0) });
     }
   }
-  return [...pools.values()];
+  const list = [...pools.values()];
+  if (get === geckoGet && list.length) trendingCache = { at: Date.now(), pools: list };
+  return list;
 }
 
 // Suma una operación al historial de la wallet.

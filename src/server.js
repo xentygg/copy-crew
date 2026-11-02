@@ -10,6 +10,7 @@ import { hunterSummary } from './hunter-loop.js';
 import { chartistSummary } from './chartist-loop.js';
 import { lastRugcheckError } from './agents/filter.js';
 import { jupStats } from './jupiter.js';
+import { geckoStats } from './gecko.js';
 
 const page = () => fs.readFileSync(new URL('../public/index.html', import.meta.url));
 
@@ -120,6 +121,7 @@ function publicState() {
     followWalletSells: cfg.followWalletSells,
     rugcheckError: lastRugcheckError,
     jupiter: jupStats,
+    gecko: geckoStats,
     positions: state.positions,
     closed: closed.slice(0, 60),
     equity: state.equity.filter((_, i, arr) => arr.length < 300 || i % Math.ceil(arr.length / 300) === 0 || i === arr.length - 1),
