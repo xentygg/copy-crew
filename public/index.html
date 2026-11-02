@@ -52,6 +52,7 @@
   button.pick { width: 46px; height: 46px; padding: 0; font-size: 18px; }
   button.pick.wide { width: auto; padding: 0 12px; font-size: 15px; }
   button.on { background: var(--scout); color: #fff; }
+  button.on.risk { background: var(--red); color: #fff; }
   .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   .controls .full { grid-column: span 2; }
   textarea { width: 100%; height: 160px; background: var(--card2); color: var(--text); border: 1px solid var(--line); border-radius: 10px; padding: 10px; font: 12px/1.5 ui-monospace, Menlo, monospace; }
@@ -127,16 +128,8 @@
     </div>
     <div class="muted" style="margin-top:8px" id="signals"></div>
     <div class="row" style="margin-top:10px;gap:6px">
-      <span class="muted" style="flex:1">Wallets que deben comprar el mismo token <i>(solo "Todas las wallets")</i>:</span>
-      <button class="pick" data-confirm="1">1</button><button class="pick" data-confirm="2">2</button><button class="pick" data-confirm="3">3</button>
-    </div>
-    <div class="row" style="margin-top:10px;gap:6px">
       <span class="muted" style="flex:1">Posiciones abiertas a la vez:</span>
       <button class="pick wide" data-positions="3">3 × $15</button><button class="pick wide" data-positions="5">5 × $10</button>
-    </div>
-    <div class="row" style="margin-top:10px;gap:6px">
-      <span class="muted" style="flex:1">Calidad de los tokens <i>(solo "Todas las wallets")</i>:</span>
-      <button class="pick wide" data-quality="normal">Normal</button><button class="pick wide" data-quality="strict">Estricta</button>
     </div>
     <div class="row" style="margin-top:10px;gap:6px">
       <span class="muted" style="flex:1">Vender cuando la wallet vende:</span>
@@ -290,20 +283,24 @@ function render(s) {
 
   $('ranking').innerHTML = s.walletRanking?.length ? s.walletRanking.map((r) => `<div class="trade"><div><a href="https://solscan.io/account/${esc(r.wallet)}" target="_blank">${short(r.wallet)}</a><br><span class="muted">${r.trades} copias · ${r.wins} verdes${r.vetoed ? ' · <b class="neg">vetada</b>' : ''}</span></div><div></div><div class="r"><b class="${r.pnlUsd >= 0 ? 'pos' : 'neg'}">${usd(r.pnlUsd, true)}</b></div></div>`).join('')
     : '<div class="empty">Aparecerá cuando se cierren las primeras copias.</div>';
-  document.querySelectorAll('[data-confirm]').forEach((b) => b.classList.toggle('on', Number(b.dataset.confirm) === s.confirmWallets));
   document.querySelectorAll('[data-follow]').forEach((b) => b.classList.toggle('on', (b.dataset.follow === '1') === s.followWalletSells));
-  document.querySelectorAll('[data-quality]').forEach((b) => b.classList.toggle('on', b.dataset.quality === s.quality));
   document.querySelectorAll('[data-positions]').forEach((b) => b.classList.toggle('on', Number(b.dataset.positions) === s.maxOpenPositions));
   const strat = s.strategies;
   if (strat) {
-    const names = { top10: `Top ${strat.topN} directo`, patterns: 'Patrones de gráfico', team: 'Todas las wallets (con confirmación)' };
-    const statKey = { top10: 'top10', patterns: 'patrones', team: 'equipo' };
-    const help = { top10: 'Copia al instante a las mejores wallets del momento, sin filtros', patterns: 'Opera los patrones que el bot ha comprobado que funcionan', team: 'Toda la lista; solo compra si varias wallets compran lo mismo. Gasta más créditos de Helius' };
-    $('strats').innerHTML = ['top10', 'patterns', 'team'].map((id) => {
+    const names = { top10: `Top ${strat.topN} directo`, patterns: 'Patrones de gráfico' };
+    const statKey = { top10: 'top10', patterns: 'patrones' };
+    const help = {
+      top10: strat.top10Safety ? 'Copia a las mejores wallets del momento tras Filter, prueba anti-trampa y Analyst' : '⚠️ Copia al instante a las mejores wallets, sin comprobaciones (más riesgo)',
+      patterns: 'Compra cuando ve un patrón alcista en el gráfico (con Filter y prueba anti-trampa)',
+    };
+    $('strats').innerHTML = ['top10', 'patterns'].map((id) => {
       const r = strat.stats[statKey[id]];
       return `<div class="trade"><div><b>${names[id]}</b><br><span class="muted">${help[id]}<br>${r.trades} cerradas · ${r.winRate == null ? '—' : r.winRate.toFixed(0) + '% acierto'} · <span class="${r.pnlUsd >= 0 ? 'pos' : 'neg'}">${usd(r.pnlUsd, true)}</span></span></div><div></div>
         <div class="r"><button class="pick wide ${strat[id] ? 'on' : ''}" data-strat="${id}" data-on="${strat[id] ? 0 : 1}">${strat[id] ? 'Activa' : 'Apagada'}</button></div></div>`;
-    }).join('');
+    }).join('') + `<div class="row" style="margin-top:10px;gap:6px">
+      <span class="muted" style="flex:1">Protección del Top ${strat.topN}:</span>
+      <button class="pick wide ${strat.top10Safety ? 'on' : ''}" data-safety="1">Con protección</button><button class="pick wide ${strat.top10Safety ? '' : 'on risk'}" data-safety="0">Sin protección</button>
+    </div>`;
   }
   const ch = s.chartist;
   if (ch) {
@@ -366,6 +363,11 @@ $('btnMode').onclick = () => {
 document.addEventListener('click', (e) => {
   const n = e.target.dataset?.confirm;
   if (n) return api('/api/confirm', { n: Number(n) });
+  const sf = e.target.dataset?.safety;
+  if (sf) {
+    if (sf === '0' && !confirm('Sin protección el Top 10 copia al instante, sin Filter, sin prueba anti-trampa y sin Analyst.\nPuede comprar tokens trampa que no se pueden vender. ¿Seguro?')) return;
+    return api('/api/top10-safety', { on: sf === '1' });
+  }
   const sid = e.target.dataset?.strat;
   if (sid) return api('/api/strategy', { id: sid, on: e.target.dataset.on === '1' });
   const pm = e.target.dataset?.pmode;

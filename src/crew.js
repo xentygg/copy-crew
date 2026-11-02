@@ -2,7 +2,7 @@
 import { cfg } from './config.js';
 import { state, save, log, kill, resetForMode } from './state.js';
 import { short } from './agents/scout.js';
-import { runFilter, sellCheck, REASONS as FILTER_REASONS } from './agents/filter.js';
+import { runFilter, sellCheck, dexInfo, REASONS as FILTER_REASONS } from './agents/filter.js';
 import { runAnalyst, REASONS as ANALYST_REASONS } from './agents/analyst.js';
 import { makePlan, patternPlan, exitReason, valuePosition, wantsPartial } from './agents/guard.js';
 import { sizeTrade, sizeFixed, buy, sell, sellPart, cashSol, isPaper } from './agents/sniper.js';
@@ -142,8 +142,8 @@ async function safetyCheck(mint, amountSol, { momentum, label }) {
   return f.ctx;
 }
 
-// TOP 10 — sigue a la wallet sin exigir confirmación ni impulso, pero con Filter de seguridad,
-// prueba anti-trampa y Analyst (la wallet sigue dentro y no llegamos tarde). Guard pone su plan de salida.
+// TOP 10 — sigue a la wallet sin exigir confirmación ni impulso. Con "protección" (por defecto) pasa antes
+// Filter de seguridad, prueba anti-trampa y Analyst; sin ella copia al instante. Guard siempre pone su plan de salida.
 export async function handleDirect(mint, b) {
   if (!cfg.stratTop10) return;
   const no = canOpen(mint);
@@ -153,18 +153,28 @@ export async function handleDirect(mint, b) {
     const solUsd = await solPriceUsd();
     const amountSol = sizeTrade([b], solUsd, { cash: await cashSol(), investedSol: investedSol() });
     if (!amountSol) return skip(mint, 'sin saldo suficiente o límite de gasto alcanzado');
-    const ctx = await safetyCheck(mint, amountSol, { momentum: false, label: 'Top 10' });
-    if (!ctx) return;
-    const symbol = ctx.symbol || short(mint);
-    const a = await runAnalyst(mint, [b], BigInt(Math.floor(amountSol * 1e9)), ctx.decimals);
-    if (!a.ok) {
-      kill('analyst', a.reason, a.detail);
-      return log('analyst', `✗ Top 10 ${symbol}: ${ANALYST_REASONS[a.reason]()} ${a.detail ? `(${short(a.detail)})` : ''}`);
+    let symbol = short(mint);
+    let preQuote;
+    if (cfg.top10Safety) {
+      const ctx = await safetyCheck(mint, amountSol, { momentum: false, label: 'Top 10' });
+      if (!ctx) return;
+      symbol = ctx.symbol || symbol;
+      const a = await runAnalyst(mint, [b], BigInt(Math.floor(amountSol * 1e9)), ctx.decimals);
+      if (!a.ok) {
+        kill('analyst', a.reason, a.detail);
+        return log('analyst', `✗ Top 10 ${symbol}: ${ANALYST_REASONS[a.reason]()} ${a.detail ? `(${short(a.detail)})` : ''}`);
+      }
+      log('analyst', `✓ Top 10 ${symbol}: la wallet sigue dentro, entrada +${a.premiumPct.toFixed(0)}% sobre ella`);
+      preQuote = a.quote;
+    } else {
+      // Sin protección: copia al instante. Solo se busca el nombre del token (si tarda o falla, se usa la dirección).
+      try {
+        symbol = (await dexInfo(mint)).symbol || symbol;
+      } catch {}
     }
-    log('analyst', `✓ Top 10 ${symbol}: la wallet sigue dentro, entrada +${a.premiumPct.toFixed(0)}% sobre ella`);
     const plan = makePlan();
     state.counters.guardSet++;
-    await openPosition({ strategy: 'top10', mint, symbol, amountSol, preQuote: a.quote, plan, solUsd, buys: [b] });
+    await openPosition({ strategy: 'top10', mint, symbol, amountSol, preQuote, plan, solUsd, buys: [b] });
   } catch (e) {
     log('error', `Top 10 ${short(mint)}: ${e.message}`);
   } finally {

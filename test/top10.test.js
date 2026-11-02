@@ -117,3 +117,18 @@ test('Patrones: compra con plan propio (+15% / −8%) y rechaza mint sin revocar
   assert.match(p.pattern, /Ruptura/);
   state.positions = [];
 });
+
+test('Top 10 sin protección: copia al instante aunque el pool sea pequeño', async () => {
+  state.paperCashSol = 1;
+  state.positions = [];
+  Object.assign(market, { liquidity: 1000, sellStatus: 400, walletHolds: 0 });
+  cfg.top10Safety = false;
+  try {
+    await withMarket(() => buyFrom());
+    assert.equal(state.positions.length, 1);
+    assert.equal(state.positions[0].plan.stopLossPct, cfg.stopLossPct); // Guard sigue poniendo su stop
+  } finally {
+    cfg.top10Safety = true;
+    state.positions = [];
+  }
+});

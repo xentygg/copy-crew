@@ -129,7 +129,7 @@ function publicState() {
     hunter: hunterSummary(),
     walletRanking: walletRanking(state.closed),
     chartist: chartistSummary(),
-    strategies: { team: cfg.stratTeam, top10: cfg.stratTop10, patterns: cfg.stratPatterns, topN: cfg.topN, stats: strategyStats(state.closed) },
+    strategies: { top10Safety: cfg.top10Safety, top10: cfg.stratTop10, patterns: cfg.stratPatterns, topN: cfg.topN, stats: strategyStats(state.closed) },
   };
 }
 
@@ -213,11 +213,11 @@ export function startServer({ onWebhook }) {
             log('crew', '🔄 estadísticas reiniciadas: desde ahora se mide solo la estrategia actual');
             break;
           case '/api/strategy': {
-            const key = { team: 'stratTeam', top10: 'stratTop10', patterns: 'stratPatterns' }[body.id];
+            const key = { top10: 'stratTop10', patterns: 'stratPatterns' }[body.id];
             if (!key) return json(res, 400, { error: 'estrategia desconocida' });
             saveSetting(key, body.on === true);
             await syncWebhook();
-            log('crew', `estrategia ${body.id === 'team' ? 'Todas las wallets' : body.id === 'top10' ? `Top ${cfg.topN}` : 'Patrones'}: ${body.on ? 'ACTIVADA' : 'desactivada'}`);
+            log('crew', `estrategia ${body.id === 'top10' ? `Top ${cfg.topN}` : 'Patrones'}: ${body.on ? 'ACTIVADA' : 'desactivada'}`);
             break;
           }
           case '/api/pattern-mode': {
@@ -228,6 +228,11 @@ export function startServer({ onWebhook }) {
           case '/api/pattern-winrate': {
             saveSetting('patternMinWinRate', Number(body.n));
             log('chartist', `solo se operan patrones con ≥ ${cfg.patternMinWinRate}% de acierto`);
+            break;
+          }
+          case '/api/top10-safety': {
+            saveSetting('top10Safety', body.on === true);
+            log('filter', body.on ? `🛡 Top ${cfg.topN} CON protección: Filter + anti-trampa + Analyst` : `⚠️ Top ${cfg.topN} SIN protección: copia al instante (más riesgo)`);
             break;
           }
           case '/api/follow': {
