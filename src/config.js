@@ -90,10 +90,16 @@ const secretFile = 'data/webhook-secret';
 if (!fs.existsSync(secretFile)) fs.writeFileSync(secretFile, crypto.randomBytes(24).toString('hex'));
 cfg.webhookSecret = fs.readFileSync(secretFile, 'utf8').trim();
 
+// wallets.txt es la lista propia; si está vacía se usa smart-wallets.txt (las elegidas de kolscan, de mejor a peor).
 export function loadWallets() {
-  if (!fs.existsSync('wallets.txt')) return [];
+  const own = readWalletFile('wallets.txt');
+  return own.length ? own : readWalletFile('smart-wallets.txt');
+}
+
+function readWalletFile(file) {
+  if (!fs.existsSync(file)) return [];
   const list = fs
-    .readFileSync('wallets.txt', 'utf8')
+    .readFileSync(file, 'utf8')
     .split('\n')
     .map((l) => l.replace(/#.*/, '').trim())
     .filter((l) => /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(l));

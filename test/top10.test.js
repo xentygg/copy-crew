@@ -16,7 +16,11 @@ test('Top 10: elige las mejores wallets activas y excluye las vetadas', () => {
   hunt.wallets = { GOOD1: w(2000), GOOD2: w(800), OLD: w(5000, now - 3 * 86400_000), SMALL: w(100) };
   state.closed = [1, 2, 3].map(() => ({ sources: [{ wallet: 'GOOD2' }], pnlUsd: -1 })); // GOOD2 vetada
   computeTop();
-  assert.deepEqual(top.map((t) => t.wallet), ['GOOD1']); // OLD inactiva, SMALL no llega a $300, GOOD2 vetada
+  const ids = top.map((t) => t.wallet);
+  assert.equal(ids[0], 'GOOD1'); // la mejor del Hunter va primero
+  for (const bad of ['GOOD2', 'OLD', 'SMALL']) assert.ok(!ids.includes(bad)); // vetada, inactiva, no llega a $300
+  assert.equal(ids.length, cfg.topN); // el resto se completa con la lista de reserva
+  assert.equal(top[1].source, 'lista');
   state.closed = [];
   hunt.wallets = {};
 });
