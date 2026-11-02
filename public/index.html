@@ -127,7 +127,7 @@
     </div>
     <div class="muted" style="margin-top:8px" id="signals"></div>
     <div class="row" style="margin-top:10px;gap:6px">
-      <span class="muted" style="flex:1">Wallets que deben comprar el mismo token:</span>
+      <span class="muted" style="flex:1">Wallets que deben comprar el mismo token <i>(solo "Todas las wallets")</i>:</span>
       <button class="pick" data-confirm="1">1</button><button class="pick" data-confirm="2">2</button><button class="pick" data-confirm="3">3</button>
     </div>
     <div class="row" style="margin-top:10px;gap:6px">
@@ -135,7 +135,7 @@
       <button class="pick wide" data-positions="3">3 × $15</button><button class="pick wide" data-positions="5">5 × $10</button>
     </div>
     <div class="row" style="margin-top:10px;gap:6px">
-      <span class="muted" style="flex:1">Calidad de los tokens:</span>
+      <span class="muted" style="flex:1">Calidad de los tokens <i>(solo "Todas las wallets")</i>:</span>
       <button class="pick wide" data-quality="normal">Normal</button><button class="pick wide" data-quality="strict">Estricta</button>
     </div>
     <div class="row" style="margin-top:10px;gap:6px">
@@ -296,9 +296,9 @@ function render(s) {
   document.querySelectorAll('[data-positions]').forEach((b) => b.classList.toggle('on', Number(b.dataset.positions) === s.maxOpenPositions));
   const strat = s.strategies;
   if (strat) {
-    const names = { top10: `Top ${strat.topN} directo`, patterns: 'Patrones de gráfico', team: 'Equipo (5 agentes)' };
+    const names = { top10: `Top ${strat.topN} directo`, patterns: 'Patrones de gráfico', team: 'Todas las wallets (con confirmación)' };
     const statKey = { top10: 'top10', patterns: 'patrones', team: 'equipo' };
-    const help = { top10: 'Copia al instante a las mejores wallets del momento, sin filtros', patterns: 'Opera los patrones que el bot ha comprobado que funcionan', team: 'Todas las wallets, con Filter y Analyst' };
+    const help = { top10: 'Copia al instante a las mejores wallets del momento, sin filtros', patterns: 'Opera los patrones que el bot ha comprobado que funcionan', team: 'Toda la lista; solo compra si varias wallets compran lo mismo. Gasta más créditos de Helius' };
     $('strats').innerHTML = ['top10', 'patterns', 'team'].map((id) => {
       const r = strat.stats[statKey[id]];
       return `<div class="trade"><div><b>${names[id]}</b><br><span class="muted">${help[id]}<br>${r.trades} cerradas · ${r.winRate == null ? '—' : r.winRate.toFixed(0) + '% acierto'} · <span class="${r.pnlUsd >= 0 ? 'pos' : 'neg'}">${usd(r.pnlUsd, true)}</span></span></div><div></div>

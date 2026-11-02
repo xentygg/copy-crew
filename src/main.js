@@ -22,7 +22,7 @@ await initMode();
 computeTop();
 await syncWebhook();
 log('top10', `Top ${cfg.topN}: ${topSummary().map((t) => t.label).join(', ')}`);
-log('crew', `estrategias: ${[cfg.stratTeam && 'Equipo', cfg.stratTop10 && `Top ${cfg.topN}`, cfg.stratPatterns && 'Patrones'].filter(Boolean).join(' + ') || 'ninguna'}`);
+log('crew', `estrategias: ${[cfg.stratTeam && 'Todas las wallets', cfg.stratTop10 && `Top ${cfg.topN}`, cfg.stratPatterns && 'Patrones'].filter(Boolean).join(' + ') || 'ninguna'}`);
 log('crew', `modo ${state.mode === 'live' ? 'REAL' : 'observación'} · wallet del bot ${keypair.publicKey.toBase58()} · límite $${cfg.spendCapUsd}`);
 
 guardLoop();

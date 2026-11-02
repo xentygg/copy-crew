@@ -217,7 +217,7 @@ export function startServer({ onWebhook }) {
             if (!key) return json(res, 400, { error: 'estrategia desconocida' });
             saveSetting(key, body.on === true);
             await syncWebhook();
-            log('crew', `estrategia ${body.id === 'team' ? 'Equipo' : body.id === 'top10' ? `Top ${cfg.topN}` : 'Patrones'}: ${body.on ? 'ACTIVADA' : 'desactivada'}`);
+            log('crew', `estrategia ${body.id === 'team' ? 'Todas las wallets' : body.id === 'top10' ? `Top ${cfg.topN}` : 'Patrones'}: ${body.on ? 'ACTIVADA' : 'desactivada'}`);
             break;
           }
           case '/api/pattern-mode': {
