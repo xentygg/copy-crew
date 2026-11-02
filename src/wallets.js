@@ -13,7 +13,7 @@ const exclusive = mutex();
 const ADDR = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 
 export function parseWallets(text) {
-  return [...new Set(String(text).split(/[\s,;]+/).filter((w) => ADDR.test(w)))].filter((w) => w !== keypair.publicKey.toBase58());
+  return [...new Set(String(text).split(/[\s,;]+/).filter((w) => ADDR.test(w)))].filter((w) => w !== keypair?.publicKey.toBase58());
 }
 
 // notes: { address: 'comentario' } para dejar constancia de dónde salió cada wallet.
@@ -64,7 +64,7 @@ export function topSummary() {
 }
 
 export function trackedWallets() {
-  return loadWallets().filter((w) => w !== keypair.publicKey.toBase58());
+  return loadWallets().filter((w) => w !== keypair?.publicKey.toBase58());
 }
 
 // Conserva los comentarios ya escritos en wallets.txt.
