@@ -8,6 +8,7 @@ import { keypair, withdrawAll, getSolBalance } from './solana.js';
 import { parseWallets, saveWallets, trackedWallets, currentNotes, syncWebhook } from './wallets.js';
 import { hunterSummary } from './hunter-loop.js';
 import { chartistSummary } from './chartist-loop.js';
+import { binanceSummary, resetBinance } from './binance/strategy.js';
 import { lastRugcheckError } from './agents/filter.js';
 import { jupStats } from './jupiter.js';
 import { geckoStats } from './gecko.js';
@@ -129,6 +130,7 @@ function publicState() {
     hunter: hunterSummary(),
     walletRanking: walletRanking(state.closed),
     chartist: chartistSummary(),
+    binance: binanceSummary(),
     strategies: { top10Safety: cfg.top10Safety, top10: cfg.stratTop10, patterns: cfg.stratPatterns, topN: cfg.topN, stats: strategyStats(state.closed) },
   };
 }
@@ -210,14 +212,15 @@ export function startServer({ onWebhook }) {
           }
           case '/api/reset-stats':
             resetStats();
+            resetBinance();
             log('crew', '🔄 estadísticas reiniciadas: desde ahora se mide solo la estrategia actual');
             break;
           case '/api/strategy': {
-            const key = { top10: 'stratTop10', patterns: 'stratPatterns' }[body.id];
+            const key = { top10: 'stratTop10', patterns: 'stratPatterns', binance: 'stratBinance' }[body.id];
             if (!key) return json(res, 400, { error: 'estrategia desconocida' });
             saveSetting(key, body.on === true);
             await syncWebhook();
-            log('crew', `estrategia ${body.id === 'top10' ? `Top ${cfg.topN}` : 'Patrones'}: ${body.on ? 'ACTIVADA' : 'desactivada'}`);
+            log('crew', `estrategia ${{ top10: `Top ${cfg.topN}`, patterns: 'Patrones', binance: 'Binance' }[body.id]}: ${body.on ? 'ACTIVADA' : 'desactivada'}`);
             break;
           }
           case '/api/pattern-mode': {

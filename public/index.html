@@ -104,6 +104,26 @@
   </section>
 
   <section class="card">
+    <h2>Binance <small id="bnInfo">simulado</small></h2>
+    <div class="row muted"><span id="bnCoins"></span><button class="pick wide" id="bnToggle" style="margin-left:auto">…</button></div>
+    <div class="stats">
+      <div class="stat"><b id="bnEquity">—</b><span>saldo SIM</span></div>
+      <div class="stat"><b id="bnTrades">0</b><span>cerradas</span></div>
+      <div class="stat"><b id="bnWin">—</b><span>acierto</span></div>
+      <div class="stat"><b id="bnPnl">—</b><span>resultado</span></div>
+    </div>
+    <div class="muted" id="bnHelp" style="margin-top:8px"></div>
+    <div id="bnPositions"></div>
+    <div class="muted" style="margin:10px 0 2px">Patrones comprobados con el historial de cada moneda:</div>
+    <div id="bnProven"></div>
+    <div class="row" style="margin-top:10px;gap:6px">
+      <span class="muted" style="flex:1">Acierto mínimo comprobado:</span>
+      <button class="pick wide" data-pwr="60">60%</button><button class="pick wide" data-pwr="70">70%</button>
+    </div>
+    <div id="bnClosed"></div>
+  </section>
+
+  <section class="card">
     <h2>Patrones de gráfico <small id="pInfo"></small></h2>
     <div class="muted" id="pHelp" style="margin-bottom:6px"></div>
     <div id="patterns"></div>
@@ -301,6 +321,24 @@ function render(s) {
       <span class="muted" style="flex:1">Protección del Top ${strat.topN}:</span>
       <button class="pick wide ${strat.top10Safety ? 'on' : ''}" data-safety="1">Con protección</button><button class="pick wide ${strat.top10Safety ? '' : 'on risk'}" data-safety="0">Sin protección</button>
     </div>`;
+  }
+  const bnx = s.binance;
+  if (bnx) {
+    $('bnInfo').textContent = bnx.lastScan ? `simulado · velas de ${bnx.interval} · hace ${ago(bnx.lastScan)}` : 'simulado · comprobando historial…';
+    $('bnCoins').textContent = bnx.symbols.join(' · ');
+    $('bnToggle').textContent = bnx.enabled ? 'Activa' : 'Apagada';
+    $('bnToggle').className = 'pick wide' + (bnx.enabled ? ' on' : '');
+    $('bnToggle').dataset.strat = 'binance';
+    $('bnToggle').dataset.on = bnx.enabled ? '0' : '1';
+    $('bnEquity').textContent = usd(bnx.equityUsd);
+    $('bnTrades').textContent = bnx.trades;
+    $('bnWin').textContent = bnx.winRate == null ? '—' : bnx.winRate.toFixed(0) + '%';
+    $('bnPnl').innerHTML = `<span class="${bnx.pnlUsd >= 0 ? 'pos' : 'neg'}">${usd(bnx.pnlUsd, true)}</span>`;
+    $('bnHelp').textContent = `Solo opera un patrón en una moneda si en su historial lleva ≥ ${bnx.minSamples} casos y ≥ ${bnx.minWinRate}% de acierto. Objetivo +${bnx.tp}% / stop −${bnx.sl}%, máx. ${bnx.holdHours} h. ${bnx.provenCount} combinaciones lo cumplen ahora.` + (bnx.lastError ? ` Último fallo: ${bnx.lastError}` : '');
+    $('bnPositions').innerHTML = bnx.positions.map((p) => `<div class="trade"><div><b>${esc(p.symbol.replace('USDT', ''))}</b> <span class="muted">SIM</span><br><span class="muted">${esc(p.pattern)} · $${p.costUsd.toFixed(0)} · ${ago(p.openedAt)}</span></div><div></div><div class="r muted">entrada $${p.entryPrice}<br>+${p.tpPct}% / −${p.slPct}%</div></div>`).join('');
+    $('bnProven').innerHTML = bnx.proven.length ? bnx.proven.map((p) => `<div class="row" style="padding:3px 0;font-size:13px"><b style="width:46px">${esc(p.symbol)}</b><span style="flex:1">${esc(p.pattern)}</span><span class="muted">${p.n} casos · ${p.winRate.toFixed(0)}%&nbsp;</span>${p.proven ? '<b class="pos">opera</b>' : '<span class="muted">no</span>'}</div>`).join('') : '<div class="empty">Comprobando el historial…</div>';
+    $('bnClosed').innerHTML = bnx.closed.length ? '<div class="muted" style="margin:10px 0 2px">Últimas operaciones:</div>' + bnx.closed.slice(0, 10).map((t) => `<div class="trade"><div><b>${esc(t.symbol.replace('USDT', ''))}</b><br><span class="muted">${esc(t.pattern)}</span></div><div></div><div class="r"><b class="${t.pnlUsd >= 0 ? 'pos' : 'neg'}">${usd(t.pnlUsd, true)}</b><br><span class="muted">${esc(t.exitReason)}</span></div></div>`).join('') : '';
+    document.querySelectorAll('[data-pwr]').forEach((b) => b.classList.toggle('on', Number(b.dataset.pwr) === bnx.minWinRate));
   }
   const ch = s.chartist;
   if (ch) {

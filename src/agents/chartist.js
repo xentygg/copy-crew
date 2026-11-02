@@ -130,18 +130,18 @@ export function detect(c, i) {
 }
 
 // ¿Qué pasó después? Gana si toca +TP antes que −SL dentro del horizonte (mismo plan que al operar).
-export function outcome(c, i, { tpPct = cfg.patternTpPct, slPct = cfg.patternSlPct, horizon = cfg.patternHoldCandles } = {}) {
+export function outcome(c, i, { tpPct = cfg.patternTpPct, slPct = cfg.patternSlPct, horizon = cfg.patternHoldCandles, feesPct = FEES_PCT } = {}) {
   const entry = c.c[i];
   const tp = entry * (1 + tpPct / 100);
   const sl = entry * (1 - slPct / 100);
   for (let j = i + 1; j <= i + horizon && j < c.c.length; j++) {
     const hitTp = c.h[j] >= tp;
     const hitSl = c.l[j] <= sl;
-    if (hitSl) return { win: false, ret: -slPct - FEES_PCT }; // si ambos en la misma vela, se asume lo peor
-    if (hitTp) return { win: true, ret: tpPct - FEES_PCT };
+    if (hitSl) return { win: false, ret: -slPct - feesPct }; // si ambos en la misma vela, se asume lo peor
+    if (hitTp) return { win: true, ret: tpPct - feesPct };
   }
   const last = c.c[Math.min(i + horizon, c.c.length - 1)];
-  const ret = (last / entry - 1) * 100 - FEES_PCT;
+  const ret = (last / entry - 1) * 100 - feesPct;
   return { win: ret > 0, ret };
 }
 
@@ -160,6 +160,11 @@ export function toCandles(ohlcvList, now = Date.now()) {
     c.c.push(cl);
     c.v.push(v);
   }
+  return withIndicators(c);
+}
+
+// Añade las medias y el RSI a unas velas { t, o, h, l, c, v }.
+export function withIndicators(c) {
   c.ema9 = ema(c.c, 9);
   c.ema20 = ema(c.c, 20);
   c.ema21 = ema(c.c, 21);
