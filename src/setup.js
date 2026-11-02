@@ -36,6 +36,7 @@ ${error ? `<div class="err">${esc(error)}</div>` : ''}
 <form method="post">
 <label>Código de instalación<input name="code" inputmode="numeric" autocomplete="off" required></label><p>El número de 6 cifras que apareció en la consola del servidor al terminar la instalación.</p>
 ${field('HELIUS_API_KEY', 'API key de Helius', 'De dashboard.helius.dev → API Keys.')}
+${process.env.RPC_URL ? '' : `<label>URL de Alchemy (opcional, recomendado)<input name="RPC_URL" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://solana-mainnet.g.alchemy.com/v2/..."></label><p>Con esto las consultas a la blockchain van por Alchemy (gratis) y Helius solo avisa de las compras: gasta muchos menos créditos. Déjalo vacío para usar solo Helius.</p>`}
 ${field('WITHDRAW_ADDRESS', 'Tu dirección de Phantom (para retirar)', 'Phantom → Recibir → Solana → copiar. Es pública, se puede compartir. El botón "Retirar" del panel solo podrá enviar el dinero aquí.')}
 ${field('PRIVATE_KEY', 'Clave privada de la wallet del bot (opcional)', '<b>Déjalo vacío</b> y se creará una wallet nueva para el bot automáticamente. Te mostraremos su dirección para que le envíes el SOL.', 'password', false)}
 ${field('DASHBOARD_PASSWORD', 'Contraseña para el panel', 'Te la pedirá cada vez que abras el panel. No reutilices una contraseña importante.', 'password')}
@@ -84,6 +85,11 @@ export function startSetup() {
       const values = {};
       for (const k of ['HELIUS_API_KEY', 'PRIVATE_KEY', 'DASHBOARD_PASSWORD', 'WITHDRAW_ADDRESS']) {
         if (missing.includes(k)) values[k] = (p[k] || '').trim();
+      }
+      const rpc = (p.RPC_URL || '').trim();
+      if (rpc) {
+        if (!/^https:\/\/\S+$/.test(rpc)) return send(form(missing, 'La URL de Alchemy debe empezar por https://'));
+        values.RPC_URL = rpc;
       }
       if (values.WITHDRAW_ADDRESS !== undefined && !ADDR.test(values.WITHDRAW_ADDRESS)) {
         return send(form(missing, 'La dirección de Phantom no es válida. Cópiala desde Phantom → Recibir → Solana.'));
