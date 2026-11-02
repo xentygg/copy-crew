@@ -25,16 +25,27 @@ test('Top 10: elige las mejores wallets activas y excluye las vetadas', () => {
   hunt.wallets = {};
 });
 
+// Mercado simulado: pool, RugCheck, mint y cotizaciones de compra y venta configurables.
+const market = { liquidity: 80000, sellStatus: 200, sellBackLamports: null, mintAuthority: null, walletHolds: 66 };
 async function withMarket(fn) {
   const real = globalThis.fetch;
   globalThis.fetch = async (url) => {
     url = String(url);
     const ok = (j) => new Response(JSON.stringify(j));
     if (url.includes('price/v3')) return ok({ [SOL]: { usdPrice: 100 } });
-    if (url.includes('dexscreener')) return ok([{ liquidity: { usd: 1000 }, baseToken: { address: MINT, symbol: 'MEME' } }]);
-    if (url.includes('/quote')) return ok({ inAmount: '1', outAmount: '5000000' });
+    if (url.includes('dexscreener')) return ok([{ liquidity: { usd: market.liquidity }, baseToken: { address: MINT, symbol: 'MEME' }, dexId: 'pumpswap' }]);
+    if (url.includes('rugcheck')) return ok({ creator: 'DEV', creatorBalance: 0, markets: [{ lp: { lpLockedPct: 100, quoteUSD: 1, baseUSD: 1 } }], topHolders: [{ address: 'a', owner: 'b', pct: 5 }] });
+    if (url.includes('/quote')) {
+      const u = new URL(url);
+      const amount = u.searchParams.get('amount');
+      if (u.searchParams.get('inputMint') === SOL) return ok({ inAmount: amount, outAmount: '5000000' });
+      if (market.sellStatus !== 200) return new Response('{"error":"TOKEN_NOT_TRADABLE"}', { status: market.sellStatus });
+      return ok({ inAmount: amount, outAmount: String(market.sellBackLamports) });
+    }
     throw new Error('inesperado ' + url);
   };
+  connection.getParsedTokenAccountsByOwner = async () => ({ value: [{ pubkey: 'x', account: { owner: 'tok', data: { parsed: { info: { tokenAmount: { amount: String(market.walletHolds * 1e6), uiAmount: market.walletHolds, decimals: 6 } } } } } }] });
+  connection.getParsedAccountInfo = async () => ({ value: { data: { parsed: { info: { decimals: 6, supply: '1000000000000', mintAuthority: market.mintAuthority, freezeAuthority: null } } } } });
   try {
     await fn();
   } finally {
@@ -42,11 +53,15 @@ async function withMarket(fn) {
   }
 }
 
-test('Top 10 copia al instante, sin Filter (aunque el pool sea pequeño)', async () => {
+const WALLET = '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU';
+const buyFrom = (w = WALLET, tokens = 66.67) => handleDirect(MINT, { wallet: w, sol: 2, tokens, sig: 's', t: Date.now() });
+
+test('Top 10 copia si el token es seguro y la wallet sigue dentro a buen precio', async () => {
   state.mode = 'watch';
   state.paperCashSol = 1;
   state.positions = [];
-  await withMarket(() => handleDirect(MINT, { wallet: 'GOOD1', sol: 2, tokens: 1000, sig: 's', t: Date.now() }));
+  Object.assign(market, { liquidity: 80000, sellStatus: 200, sellBackLamports: 140_000_000, mintAuthority: null });
+  await withMarket(() => buyFrom());
   assert.equal(state.positions.length, 1);
   const p = state.positions[0];
   assert.equal(p.strategy, 'top10');
@@ -55,13 +70,44 @@ test('Top 10 copia al instante, sin Filter (aunque el pool sea pequeño)', async
   state.positions = [];
 });
 
+test('Top 10 rechaza pool pequeño, token que no se puede vender e impuesto oculto', async () => {
+  state.paperCashSol = 1;
+  state.positions = [];
+  Object.assign(market, { liquidity: 1000, sellStatus: 200, sellBackLamports: 140_000_000 });
+  await withMarket(() => buyFrom());
+  assert.equal(state.positions.length, 0, 'pool de $1000');
+
+  Object.assign(market, { liquidity: 80000, sellStatus: 400 });
+  await withMarket(() => buyFrom());
+  assert.equal(state.positions.length, 0, 'no se puede vender');
+
+  Object.assign(market, { sellStatus: 200, sellBackLamports: 100_000_000 }); // compra 0.15 y al vender recibe 0.10: −33 %
+  await withMarket(() => buyFrom());
+  assert.equal(state.positions.length, 0, 'impuesto oculto');
+  assert.ok(state.killReasons['filter:honeypot'] >= 1);
+  assert.ok(state.killReasons['filter:tax'] >= 1);
+});
+
+test('Top 10: Analyst rechaza si la wallet ya vendió o si llegamos tarde', async () => {
+  state.paperCashSol = 1;
+  state.positions = [];
+  Object.assign(market, { liquidity: 80000, sellStatus: 200, sellBackLamports: 140_000_000, mintAuthority: null, walletHolds: 10 });
+  await withMarket(() => buyFrom()); // compró 66 y solo le quedan 10
+  assert.equal(state.positions.length, 0, 'la wallet ya vendió');
+  market.walletHolds = 1000;
+  await withMarket(() => buyFrom(WALLET, 200)); // la wallet pagó 0.01 SOL/token y ahora cuesta 0.03: +200 %
+  assert.equal(state.positions.length, 0, 'llegamos tarde');
+  assert.ok(state.killReasons['analyst:sold'] >= 1);
+  assert.ok(state.killReasons['analyst:late'] >= 1);
+});
+
 test('Patrones: compra con plan propio (+15% / −8%) y rechaza mint sin revocar', async () => {
   state.paperCashSol = 1;
   state.positions = [];
-  connection.getParsedAccountInfo = async () => ({ value: { data: { parsed: { info: { decimals: 6, supply: '1', mintAuthority: 'X', freezeAuthority: null } } } } });
+  Object.assign(market, { liquidity: 80000, sellStatus: 200, sellBackLamports: 140_000_000, mintAuthority: 'X' });
   await withMarket(() => handlePattern({ mint: MINT, name: 'MEME / SOL', address: 'P' }, ['ruptura']));
   assert.equal(state.positions.length, 0);
-  connection.getParsedAccountInfo = async () => ({ value: { data: { parsed: { info: { decimals: 6, supply: '1', mintAuthority: null, freezeAuthority: null } } } } });
+  market.mintAuthority = null;
   await withMarket(() => handlePattern({ mint: MINT, name: 'MEME / SOL', address: 'P' }, ['ruptura']));
   assert.equal(state.positions.length, 1);
   const p = state.positions[0];

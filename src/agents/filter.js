@@ -1,12 +1,15 @@
 // FILTER — mata la señal si se rompe una sola regla dura.
-import { cfg, filterLimits } from '../config.js';
+import { cfg, filterLimits, SOL_MINT } from '../config.js';
 import { fetchJson } from '../http.js';
+import { quote } from '../jupiter.js';
 import { PublicKey } from '@solana/web3.js';
 import { getMintInfo, connection } from '../solana.js';
 
 export const REASONS = {
   liquidity: () => `pool bajo $${(filterLimits().minLiquidityUsd / 1000).toFixed(0)}k`,
   momentum: () => 'sin impulso (no sube o más ventas que compras)',
+  honeypot: () => 'no se puede vender (posible trampa)',
+  tax: () => 'pierde > 25% al vender (impuesto oculto)',
   mint: () => 'mint no revocado',
   freeze: () => 'freeze no revocado',
   top10: () => `top 10 tenedores > ${filterLimits().maxTop10Pct}%`,
@@ -111,7 +114,7 @@ export async function chainHolderStats(mint, mintInfo, dexId) {
   };
 }
 
-export async function runFilter(mint) {
+export async function runFilter(mint, { momentum = cfg.momentumFilter } = {}) {
   let dex, mintInfo, report;
   try {
     dex = await dexInfo(mint);
@@ -128,7 +131,7 @@ export async function runFilter(mint) {
   // Reglas baratas primero.
   const lim = filterLimits();
   if (dex.liquidityUsd < lim.minLiquidityUsd) return { ok: false, reason: 'liquidity', ctx, detail: `$${Math.round(dex.liquidityUsd)}` };
-  if (cfg.momentumFilter && ((dex.change1h !== null && dex.change1h <= 0) || dex.buys5m < dex.sells5m)) {
+  if (momentum && ((dex.change1h !== null && dex.change1h <= 0) || dex.buys5m < dex.sells5m)) {
     return { ok: false, reason: 'momentum', ctx, detail: `1h ${dex.change1h ?? '?'}% · 5 min ${dex.buys5m} compras / ${dex.sells5m} ventas` };
   }
   if (mintInfo.mintAuthority) return { ok: false, reason: 'mint', ctx };
@@ -154,4 +157,20 @@ export async function runFilter(mint) {
   if (h.devPct !== null && h.devPct > cfg.maxDevPct) return { ok: false, reason: 'dev', ctx, detail: `${h.devPct.toFixed(1)}%` };
   if (h.lpPct < cfg.minLpBurnedPct) return { ok: false, reason: 'lp', ctx, detail: h.lpUnknown ? 'sin RugCheck no se puede comprobar' : `${h.lpPct.toFixed(0)}% quemado` };
   return { ok: true, ctx };
+}
+
+// Prueba anti-trampa: simula comprar y vender al momento. Si no hay forma de vender, o se pierde
+// más de un 25 % en la ida y vuelta (impuesto oculto o liquidez falsa), el token no se compra.
+export async function sellCheck(mint, amountLamports) {
+  let back;
+  try {
+    const buyQ = await quote(SOL_MINT, mint, amountLamports);
+    back = await quote(mint, SOL_MINT, BigInt(buyQ.outAmount));
+  } catch (e) {
+    if (e.transient) return { ok: true, unknown: true }; // Jupiter saturado: no se puede comprobar, no se culpa al token
+    return { ok: false, reason: 'honeypot', detail: e.message };
+  }
+  const lossPct = (1 - Number(back.outAmount) / Number(amountLamports)) * 100;
+  if (lossPct > 25) return { ok: false, reason: 'tax', detail: `−${lossPct.toFixed(0)}% ida y vuelta` };
+  return { ok: true, lossPct };
 }

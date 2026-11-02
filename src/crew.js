@@ -2,11 +2,10 @@
 import { cfg } from './config.js';
 import { state, save, log, kill, resetForMode } from './state.js';
 import { short } from './agents/scout.js';
-import { runFilter, dexInfo, REASONS as FILTER_REASONS } from './agents/filter.js';
+import { runFilter, sellCheck, REASONS as FILTER_REASONS } from './agents/filter.js';
 import { runAnalyst, REASONS as ANALYST_REASONS } from './agents/analyst.js';
 import { makePlan, patternPlan, exitReason, valuePosition, wantsPartial } from './agents/guard.js';
 import { sizeTrade, sizeFixed, buy, sell, sellPart, cashSol, isPaper } from './agents/sniper.js';
-import { getMintInfo } from './solana.js';
 import { PATTERNS } from './agents/chartist.js';
 import { solPriceUsd } from './jupiter.js';
 import { sleep } from './http.js';
@@ -125,7 +124,26 @@ function canOpen(mint) {
   return null;
 }
 
-// TOP 10 — copia directa: sin Filter ni Analyst. Guard sí pone su plan de salida.
+// Filter de seguridad + prueba anti-trampa. Devuelve true si el token es seguro.
+async function safetyCheck(mint, amountSol, { momentum, label }) {
+  const f = await runFilter(mint, { momentum });
+  if (!f.ok) {
+    kill('filter', f.reason, f.detail);
+    log('filter', `✗ ${label} ${f.ctx?.symbol || short(mint)}: ${FILTER_REASONS[f.reason]()} ${f.detail || ''}`);
+    return null;
+  }
+  const s = await sellCheck(mint, BigInt(Math.floor(amountSol * 1e9)));
+  if (!s.ok) {
+    kill('filter', s.reason, s.detail);
+    log('filter', `✗ ${label} ${f.ctx.symbol}: ${FILTER_REASONS[s.reason]()} ${s.detail || ''}`);
+    return null;
+  }
+  log('filter', `✓ ${label} ${f.ctx.symbol}: seguro (liq $${Math.round(f.ctx.liquidityUsd)}, top10 ${f.ctx.top10.toFixed(0)}%${s.unknown ? '' : `, ida y vuelta −${s.lossPct.toFixed(1)}%`})`);
+  return f.ctx;
+}
+
+// TOP 10 — sigue a la wallet sin exigir confirmación ni impulso, pero con Filter de seguridad,
+// prueba anti-trampa y Analyst (la wallet sigue dentro y no llegamos tarde). Guard pone su plan de salida.
 export async function handleDirect(mint, b) {
   if (!cfg.stratTop10) return;
   const no = canOpen(mint);
@@ -135,13 +153,18 @@ export async function handleDirect(mint, b) {
     const solUsd = await solPriceUsd();
     const amountSol = sizeTrade([b], solUsd, { cash: await cashSol(), investedSol: investedSol() });
     if (!amountSol) return skip(mint, 'sin saldo suficiente o límite de gasto alcanzado');
-    let symbol = short(mint);
-    try {
-      symbol = (await dexInfo(mint)).symbol || symbol;
-    } catch {}
+    const ctx = await safetyCheck(mint, amountSol, { momentum: false, label: 'Top 10' });
+    if (!ctx) return;
+    const symbol = ctx.symbol || short(mint);
+    const a = await runAnalyst(mint, [b], BigInt(Math.floor(amountSol * 1e9)), ctx.decimals);
+    if (!a.ok) {
+      kill('analyst', a.reason, a.detail);
+      return log('analyst', `✗ Top 10 ${symbol}: ${ANALYST_REASONS[a.reason]()} ${a.detail ? `(${short(a.detail)})` : ''}`);
+    }
+    log('analyst', `✓ Top 10 ${symbol}: la wallet sigue dentro, entrada +${a.premiumPct.toFixed(0)}% sobre ella`);
     const plan = makePlan();
     state.counters.guardSet++;
-    await openPosition({ strategy: 'top10', mint, symbol, amountSol, plan, solUsd, buys: [b] });
+    await openPosition({ strategy: 'top10', mint, symbol, amountSol, preQuote: a.quote, plan, solUsd, buys: [b] });
   } catch (e) {
     log('error', `Top 10 ${short(mint)}: ${e.message}`);
   } finally {
@@ -157,11 +180,10 @@ export async function handlePattern(pool, patterns) {
   if (no) return no === 'ya en curso' ? undefined : skip(mint, no);
   inFlight.add(mint);
   try {
-    const info = await getMintInfo(mint);
-    if (info.mintAuthority || info.freezeAuthority) return log('chartist', `✗ ${pool.name}: patrón visto pero mint/freeze sin revocar`);
     const solUsd = await solPriceUsd();
     const amountSol = sizeFixed(solUsd, { cash: await cashSol(), investedSol: investedSol() });
     if (!amountSol) return skip(mint, 'sin saldo suficiente o límite de gasto alcanzado');
+    if (!(await safetyCheck(mint, amountSol, { momentum: false, label: 'Patrón' }))) return;
     const pattern = patterns.map((p) => PATTERNS[p] || p).join(' + ');
     const plan = patternPlan();
     state.counters.guardSet++;
