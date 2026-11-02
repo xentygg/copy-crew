@@ -9,7 +9,7 @@ test('al mudarse de servidor reutiliza el webhook anterior en vez de crear otro'
   cfg.publicUrl = 'http://5.6.7.8:3000';
   globalThis.fetch = async (url, opt = {}) => {
     calls.push([opt.method || 'GET', String(url).split('?')[0], opt.body && JSON.parse(opt.body).webhookURL]);
-    if (!opt.method) return new Response(JSON.stringify([{ webhookID: 'old', webhookURL: 'http://1.2.3.4:3000/webhook' }]));
+    if (!opt.method || opt.method === 'GET') return new Response(JSON.stringify([{ webhookID: 'old', webhookURL: 'http://1.2.3.4:3000/webhook' }]));
     return new Response('{}');
   };
   try {
