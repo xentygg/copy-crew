@@ -27,7 +27,8 @@ async function upsertWebhook(wallets, transactionTypes) {
     authHeader: cfg.webhookSecret,
   };
   const existing = (await fetchJson(`${API}?api-key=${cfg.heliusKey}`)) || [];
-  const mine = existing.find((w) => w.webhookURL === webhookURL);
+  // Si el bot se mudó de servidor, se reutiliza su webhook anterior (el plan gratuito permite pocos).
+  const mine = existing.find((w) => w.webhookURL === webhookURL) || existing.find((w) => /:3000\/webhook$/.test(w.webhookURL || ''));
   if (mine) {
     await fetchJson(`${API}/${mine.webhookID}?api-key=${cfg.heliusKey}`, { method: 'PUT', body });
     webhookTypes = transactionTypes;
