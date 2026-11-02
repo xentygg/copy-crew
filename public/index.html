@@ -113,9 +113,11 @@
       <div class="stat"><b id="bnPnl">—</b><span>resultado</span></div>
     </div>
     <div class="muted" id="bnHelp" style="margin-top:8px"></div>
+    <div id="bnStrats"></div>
     <div id="bnPositions"></div>
-    <div class="muted" style="margin:10px 0 2px">Patrones comprobados con el historial de cada moneda:</div>
+    <div class="muted" style="margin:10px 0 2px">Comprobado con el historial de cada moneda:</div>
     <div id="bnProven"></div>
+    <div class="muted" id="bnRotation" style="margin-top:6px"></div>
     <div class="row" style="margin-top:10px;gap:6px">
       <span class="muted" style="flex:1">Acierto mínimo comprobado:</span>
       <button class="pick wide" data-pwr="60">60%</button><button class="pick wide" data-pwr="70">70%</button>
@@ -324,7 +326,7 @@ function render(s) {
   }
   const bnx = s.binance;
   if (bnx) {
-    $('bnInfo').textContent = bnx.lastScan ? `simulado · velas de ${bnx.interval} · hace ${ago(bnx.lastScan)}` : 'simulado · comprobando historial…';
+    $('bnInfo').textContent = bnx.lastScan ? `simulado · hace ${ago(bnx.lastScan)}` : 'simulado · comprobando historial…';
     $('bnCoins').textContent = bnx.symbols.join(' · ');
     $('bnToggle').textContent = bnx.enabled ? 'Activa' : 'Apagada';
     $('bnToggle').className = 'pick wide' + (bnx.enabled ? ' on' : '');
@@ -334,10 +336,14 @@ function render(s) {
     $('bnTrades').textContent = bnx.trades;
     $('bnWin').textContent = bnx.winRate == null ? '—' : bnx.winRate.toFixed(0) + '%';
     $('bnPnl').innerHTML = `<span class="${bnx.pnlUsd >= 0 ? 'pos' : 'neg'}">${usd(bnx.pnlUsd, true)}</span>`;
-    $('bnHelp').textContent = `Solo opera un patrón en una moneda si en su historial lleva ≥ ${bnx.minSamples} casos y ≥ ${bnx.minWinRate}% de acierto. Objetivo +${bnx.tp}% / stop −${bnx.sl}%, máx. ${bnx.holdHours} h. ${bnx.provenCount} combinaciones lo cumplen ahora.` + (bnx.lastError ? ` Último fallo: ${bnx.lastError}` : '');
-    $('bnPositions').innerHTML = bnx.positions.map((p) => `<div class="trade"><div><b>${esc(p.symbol.replace('USDT', ''))}</b> <span class="muted">SIM</span><br><span class="muted">${esc(p.pattern)} · $${p.costUsd.toFixed(0)} · ${ago(p.openedAt)}</span></div><div></div><div class="r muted">entrada $${p.entryPrice}<br>+${p.tpPct}% / −${p.slPct}%</div></div>`).join('');
-    $('bnProven').innerHTML = bnx.proven.length ? bnx.proven.map((p) => `<div class="row" style="padding:3px 0;font-size:13px"><b style="width:46px">${esc(p.symbol)}</b><span style="flex:1">${esc(p.pattern)}</span><span class="muted">${p.n} casos · ${p.winRate.toFixed(0)}%&nbsp;</span>${p.proven ? '<b class="pos">opera</b>' : '<span class="muted">no</span>'}</div>`).join('') : '<div class="empty">Comprobando el historial…</div>';
-    $('bnClosed').innerHTML = bnx.closed.length ? '<div class="muted" style="margin:10px 0 2px">Últimas operaciones:</div>' + bnx.closed.slice(0, 10).map((t) => `<div class="trade"><div><b>${esc(t.symbol.replace('USDT', ''))}</b><br><span class="muted">${esc(t.pattern)}</span></div><div></div><div class="r"><b class="${t.pnlUsd >= 0 ? 'pos' : 'neg'}">${usd(t.pnlUsd, true)}</b><br><span class="muted">${esc(t.exitReason)}</span></div></div>`).join('') : '';
+    $('bnHelp').textContent = `Cada estrategia solo opera en las monedas donde funcionó en el historial. ${bnx.provenCount} combinaciones operables ahora.` + (bnx.lastError ? ` Último fallo: ${bnx.lastError}` : '');
+    $('bnStrats').innerHTML = bnx.strategies.map((st) => `<div class="trade"><div><b>${esc(st.name)}</b><br><span class="muted">${esc(st.help)}<br>${st.trades} cerradas · ${st.winRate == null ? '—' : st.winRate.toFixed(0) + '% acierto'} · <span class="${st.pnlUsd >= 0 ? 'pos' : 'neg'}">${usd(st.pnlUsd, true)}</span> · ${st.operable ? `<b class="pos">${st.id === 'rotacion' ? 'operable' : st.operable + ' operables'}</b>` : 'nada comprobado aún'}</span></div><div></div>
+      <div class="r"><button class="pick wide ${st.on ? 'on' : ''}" data-bn="${st.id}" data-on="${st.on ? 0 : 1}">${st.on ? 'Activa' : 'Apagada'}</button></div></div>`).join('');
+    $('bnPositions').innerHTML = bnx.positions.length ? '<div class="muted" style="margin:10px 0 2px">Posiciones abiertas:</div>' + bnx.positions.map((p) => `<div class="trade"><div><b>${esc(p.symbol.replace('USDT', ''))}</b> <span class="muted">SIM</span><br><span class="muted">${esc(p.strategyName)} · ${esc(p.label)} · ${ago(p.openedAt)}</span></div><div></div><div class="r muted">entrada $${p.entryPrice}<br>$${p.costUsd.toFixed(0)}</div></div>`).join('') : '';
+    $('bnProven').innerHTML = bnx.proven.length ? bnx.proven.map((p) => `<div class="row" style="padding:3px 0;font-size:13px"><b style="width:46px">${esc(p.symbol)}</b><span style="flex:1">${esc(p.signal)}</span><span class="muted">${p.n} casos · ${p.winRate.toFixed(0)}% · ${p.avgRet >= 0 ? '+' : ''}${p.avgRet.toFixed(2)}%&nbsp;</span>${p.proven ? '<b class="pos">opera</b>' : '<span class="muted">no</span>'}</div>`).join('') : '<div class="empty">Comprobando el historial…</div>';
+    const rot = bnx.rotation;
+    $('bnRotation').textContent = rot && rot.periods != null ? `Rotación en el historial: ${rot.totalRetPct >= 0 ? '+' : ''}${rot.totalRetPct.toFixed(1)}% frente a ${rot.btcHoldPct >= 0 ? '+' : ''}${rot.btcHoldPct.toFixed(1)}% de guardar BTC (${rot.days} días) → ${rot.operable ? 'operable' : 'no opera'}` : '';
+    $('bnClosed').innerHTML = bnx.closed.length ? '<div class="muted" style="margin:10px 0 2px">Últimas operaciones:</div>' + bnx.closed.slice(0, 10).map((t) => `<div class="trade"><div><b>${esc(t.symbol.replace('USDT', ''))}</b><br><span class="muted">${esc(t.strategyName)} · ${esc(t.label || '')}</span></div><div></div><div class="r"><b class="${t.pnlUsd >= 0 ? 'pos' : 'neg'}">${usd(t.pnlUsd, true)}</b><br><span class="muted">${esc(t.exitReason)}</span></div></div>`).join('') : '';
     document.querySelectorAll('[data-pwr]').forEach((b) => b.classList.toggle('on', Number(b.dataset.pwr) === bnx.minWinRate));
   }
   const ch = s.chartist;
@@ -401,6 +407,8 @@ $('btnMode').onclick = () => {
 document.addEventListener('click', (e) => {
   const n = e.target.dataset?.confirm;
   if (n) return api('/api/confirm', { n: Number(n) });
+  const bid = e.target.dataset?.bn;
+  if (bid) return api('/api/bn-strategy', { id: bid, on: e.target.dataset.on === '1' });
   const sf = e.target.dataset?.safety;
   if (sf) {
     if (sf === '0' && !confirm('Sin protección el Top 10 copia al instante, sin Filter, sin prueba anti-trampa y sin Analyst.\nPuede comprar tokens trampa que no se pueden vender. ¿Seguro?')) return;

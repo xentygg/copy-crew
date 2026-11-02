@@ -79,7 +79,12 @@ export const cfg = {
   binanceFeePct: num('BINANCE_FEE_PCT', 0.1), // comisión por operación (compra o venta)
   binanceTradeUsd: num('BINANCE_TRADE_USD', 20),
   binanceStartUsd: num('BINANCE_START_USD', 100),
-  binanceMaxPositions: num('BINANCE_MAX_POSITIONS', 3),
+  binanceMaxPositions: num('BINANCE_MAX_POSITIONS', 5),
+  bnPatterns: bool('BN_PATTERNS', true),
+  bnTrend: bool('BN_TREND', true),
+  bnDips: bool('BN_DIPS', true),
+  bnBreakout: bool('BN_BREAKOUT', true),
+  bnRotation: bool('BN_ROTATION', true),
 
   hunter: bool('HUNTER', true),
   hunterMaxWallets: num('HUNTER_MAX_WALLETS', 500),
@@ -133,7 +138,7 @@ export function checkConfig() {
 const SETTINGS_FILE = 'data/settings.json';
 // Combinaciones de posiciones que se eligen desde el panel: nº de posiciones → $ máximo por operación.
 export const POSITION_PRESETS = { 3: 15, 5: 10 };
-const EDITABLE = { confirmWallets: [1, 2, 3], maxOpenPositions: [3, 5], maxTradeUsd: [10, 15], quality: ['normal', 'strict'], followWalletSells: [true, false], top10Safety: [true, false], stratTop10: [true, false], stratPatterns: [true, false], stratBinance: [true, false], patternMinWinRate: [60, 70], patternRequireProof: [true, false] };
+const EDITABLE = { confirmWallets: [1, 2, 3], maxOpenPositions: [3, 5], maxTradeUsd: [10, 15], quality: ['normal', 'strict'], followWalletSells: [true, false], top10Safety: [true, false], stratTop10: [true, false], stratPatterns: [true, false], stratBinance: [true, false], bnPatterns: [true, false], bnTrend: [true, false], bnDips: [true, false], bnBreakout: [true, false], bnRotation: [true, false], patternMinWinRate: [60, 70], patternRequireProof: [true, false] };
 try {
   const saved = JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf8'));
   for (const [k, v] of Object.entries(saved)) {

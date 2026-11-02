@@ -8,7 +8,7 @@ import { keypair, withdrawAll, getSolBalance } from './solana.js';
 import { parseWallets, saveWallets, trackedWallets, currentNotes, syncWebhook } from './wallets.js';
 import { hunterSummary } from './hunter-loop.js';
 import { chartistSummary } from './chartist-loop.js';
-import { binanceSummary, resetBinance } from './binance/strategy.js';
+import { binanceSummary, resetBinance, STRATS as BN_STRATS } from './binance/strategy.js';
 import { lastRugcheckError } from './agents/filter.js';
 import { jupStats } from './jupiter.js';
 import { geckoStats } from './gecko.js';
@@ -231,6 +231,13 @@ export function startServer({ onWebhook }) {
           case '/api/pattern-winrate': {
             saveSetting('patternMinWinRate', Number(body.n));
             log('chartist', `solo se operan patrones con ≥ ${cfg.patternMinWinRate}% de acierto`);
+            break;
+          }
+          case '/api/bn-strategy': {
+            const s = BN_STRATS[body.id];
+            if (!s) return json(res, 400, { error: 'estrategia desconocida' });
+            saveSetting(s.setting, body.on === true);
+            log('binance', `${s.name}: ${body.on ? 'ACTIVADA' : 'desactivada'}`);
             break;
           }
           case '/api/top10-safety': {
